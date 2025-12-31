@@ -16,8 +16,17 @@ docker-compose up -d
 ```bash
 bd ready                           # See what's available
 bd show scribble-spl               # View "Initialize React + Vite frontend"
+
+# IMPORTANT: Claim the task FIRST
 bd update scribble-spl --status=in_progress
-git checkout -b scribble-spl-init-react-vite
+
+# LOCK the claim immediately (prevent race conditions)
+git add .beads/
+git commit -m "chore: claim scribble-spl"
+git push origin main
+
+# NOW create your branch
+git checkout -b dev1/scribble-spl-init-react-vite
 
 # Start dev server
 cd frontend
@@ -36,8 +45,14 @@ npm run dev
 # Before starting
 git fetch origin && git pull origin main
 bd sync --from-main
+bd ready
 
-# Work on your issue
+# Claim a task (locks it globally)
+bd update scribble-XXX --status=in_progress
+git add .beads/ && git commit -m "chore: claim scribble-XXX" && git push origin main
+
+# Create your branch and work
+git checkout -b dev1/scribble-XXX-description
 npm run dev
 
 # When done
@@ -66,8 +81,17 @@ docker-compose up -d
 ```bash
 bd ready                           # See what's available
 bd show scribble-5n7               # View "Initialize Go backend server"
+
+# IMPORTANT: Claim the task FIRST
 bd update scribble-5n7 --status=in_progress
-git checkout -b scribble-5n7-init-go-backend
+
+# LOCK the claim immediately (prevent race conditions)
+git add .beads/
+git commit -m "chore: claim scribble-5n7"
+git push origin main
+
+# NOW create your branch
+git checkout -b dev2/scribble-5n7-init-go-backend
 
 # Start dev server
 cd services/go-backend
@@ -101,12 +125,18 @@ cat database/seed.sql
 # Before starting
 git fetch origin && git pull origin main
 bd sync --from-main
+bd ready
 
-# Work on your issue
+# Claim a task (locks it globally)
+bd update scribble-XXX --status=in_progress
+git add .beads/ && git commit -m "chore: claim scribble-XXX" && git push origin main
+
+# Create your branch and work
+git checkout -b dev2/scribble-XXX-description
 go run cmd/server/main.go
 
 # When done
-git push origin your-branch
+git push origin dev2/scribble-XXX-description
 gh pr create --title "..." --body "..."
 # Wait for review, then:
 git pull origin main

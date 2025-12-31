@@ -202,17 +202,90 @@ You should see your new commit at the top.
 
 ---
 
-## Creating a Branch for Your Feature
+## Claiming a Task (CRITICAL - No Race Conditions!)
 
-**IMPORTANT:** Always create a branch before working on a feature. This keeps `main` clean and allows the other developer to work simultaneously.
+**⚠️ CRITICAL: Follow this procedure exactly to prevent both developers claiming the same task.**
 
-### Step 1: Claim Your Issue
+When two developers work on the same codebase, there's a risk of both claiming the same task simultaneously and not realizing until they commit. We prevent this with an immediate claim lock.
+
+### The Safe Claiming Procedure (Do This FIRST)
+
+**Step 1: Check What's Available**
 
 ```bash
+# Make sure you're on main and up-to-date
+git fetch origin
+git pull origin main
+bd sync --from-main
+
+# See what's ready to work on
+bd ready
+```
+
+**Step 2: CLAIM the Task (This updates `.beads/`)**
+
+```bash
+# Mark the issue as in_progress in your local beads tracker
 bd update scribble-spl --status=in_progress
 ```
 
-### Step 2: Create a Branch with Correct Naming
+**Step 3: LOCK the Claim Immediately (Push `.beads/` to main BEFORE creating your branch)**
+
+This is the critical step! You must push the `.beads/` changes to main immediately:
+
+```bash
+# Stage only the .beads/ directory changes
+git add .beads/
+
+# Commit the claim lock
+git commit -m "chore: claim scribble-spl"
+
+# Push immediately to lock it globally
+git push origin main
+```
+
+**Why this order?** When you push this change to main, the `.beads/` tracker on the server is updated. Now when the OTHER developer runs `bd ready`, they will see `scribble-spl` is already `in_progress`, preventing them from claiming it.
+
+**Step 4: Verify the Lock (Optional but Recommended)**
+
+On the other developer's machine:
+```bash
+git pull origin main    # Gets your claim
+bd sync --from-main     # Updates beads from main
+bd ready                # Shows scribble-spl is no longer available
+```
+
+### Example: Avoiding a Race Condition
+
+**The Problem (without claim lock):**
+```
+9:00 AM Dev 1: bd update scribble-spl --status=in_progress  (local only)
+9:00 AM Dev 2: bd update scribble-spl --status=in_progress  (local only)
+
+Both claimed the same task!
+
+9:05 AM Dev 1: git push → PR → Gets merged
+9:05 AM Dev 2: git push → PR → Wait... Dev 1 already finished this!
+```
+
+**The Solution (with claim lock):**
+```
+9:00 AM Dev 1: bd update scribble-spl --status=in_progress
+9:00 AM Dev 1: git add .beads/ && git commit && git push origin main
+              ↓ Claim is locked globally
+
+9:00 AM Dev 2: bd ready
+               Shows: scribble-spl is ALREADY in_progress (dev 1 claimed it)
+9:00 AM Dev 2: Picks different task: scribble-eg8
+```
+
+---
+
+## Creating a Branch for Your Feature
+
+**IMPORTANT:** Only create a branch AFTER you've claimed and locked the task. This keeps `main` clean and allows the other developer to work simultaneously.
+
+### Step 1: Create a Branch with Correct Naming (AFTER claiming)
 
 **Branch name format:** `dev{1|2}/scribble-{ISSUE-ID}-short-description`
 
@@ -244,7 +317,7 @@ You should see your branch with a `*` next to it:
   main
 ```
 
-### Step 3: Make Your Changes and Commit
+### Step 2: Make Your Changes and Commit
 
 Do your work, then commit regularly:
 
@@ -697,17 +770,23 @@ git push origin -d dev1/scribble-spl-init-react-vite  # Delete remote
 # 1. Start work
 cd /home/nahtao97/projects/scribble
 git fetch origin && git pull origin main
+bd sync --from-main
 
 # 2. Check what's ready
 bd ready
 
-# 3. Claim an issue
+# 3. CLAIM an issue
 bd update scribble-XXX --status=in_progress
 
-# 4. Create your branch
+# 4. LOCK the claim immediately (push .beads/ to main)
+git add .beads/
+git commit -m "chore: claim scribble-XXX"
+git push origin main
+
+# 5. NOW create your branch
 git checkout -b dev1/scribble-XXX-short-description
 
-# 5. Start development
+# 6. Start development
 npm run dev  # or go run ...
 ```
 

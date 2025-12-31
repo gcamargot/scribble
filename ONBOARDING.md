@@ -14,9 +14,11 @@ Both developers can work in **parallel**, but we follow a structured workflow to
 
 ---
 
-## The Workflow: Pull → Work → Push → Mark Complete
+## The Workflow: Pull → Claim → Lock → Work → Push → Mark Complete
 
-This is critical for parallel development. Every developer must follow this exact sequence:
+This is critical for parallel development. Every developer must follow this exact sequence.
+
+**⚠️ CRITICAL:** Do NOT skip the "Lock" step. This prevents both developers from claiming the same task.
 
 ### Step 1: Pull Latest Changes
 
@@ -26,18 +28,37 @@ Before starting work on an issue, pull the latest code from main:
 cd /home/nahtao97/projects/scribble
 git fetch origin
 git pull origin main
+bd sync --from-main
 ```
 
 This ensures you have the latest work from the other developer.
 
-### Step 2: Work on Your Issue
+### Step 2: Claim Your Issue (Lock It Immediately!)
+
+This is different from your old workflow - you MUST lock the claim globally:
 
 ```bash
+# See what's available
+bd ready
+
 # Claim the issue in beads
 bd update scribble-ms2 --status=in_progress
 
+# CRITICAL: Push the claim lock immediately (before creating branch!)
+git add .beads/
+git commit -m "chore: claim scribble-ms2"
+git push origin main
+```
+
+**Why this order matters:** When you push `.beads/` to main, the other developer's `bd ready` will show the task is already claimed. Without this push, both of you could claim the same task.
+
+### Step 3: Work on Your Issue
+
+After claiming and locking:
+
+```bash
 # Create a feature branch with the issue ID
-git checkout -b scribble-ms2-init-nodejs-server
+git checkout -b dev1/scribble-ms2-init-nodejs-server
 
 # Do your work (code, test locally, commit regularly)
 git add .
@@ -45,27 +66,27 @@ git commit -m "feat(nodejs): initialize express server with health endpoint"
 ```
 
 **Important:**
-- Use feature branches with pattern: `scribble-XXX-short-description`
+- Use feature branches with pattern: `dev1/scribble-XXX-short-description` or `dev2/...`
 - Make atomic commits (one logical change per commit)
 - Push small, focused changes
 - Test everything locally before pushing
 
-### Step 3: Push Your Changes
+### Step 4: Push Your Changes
 
 When your work is ready (tested locally):
 
 ```bash
 # Push your feature branch
-git push origin scribble-ms2-init-nodejs-server
+git push origin dev1/scribble-ms2-init-nodejs-server
 
-# Create a pull request (or merge directly if no conflicts)
+# Create a pull request
 gh pr create --title "Initialize Node.js Express server" \
   --body "Closes scribble-ms2"
 ```
 
 **Wait for the other developer to pull your changes** - they won't have your code until they run `git pull`.
 
-### Step 4: Mark Issue Complete in Beads
+### Step 5: Mark Issue Complete in Beads
 
 Only after your code is pushed and merged:
 
@@ -88,14 +109,19 @@ This unlocks dependent issues in the workflow.
 ```bash
 # 9:00 AM - Start work
 git fetch origin && git pull origin main
-bd update scribble-spl --status=in_progress
-git checkout -b scribble-spl-init-react-vite
+bd sync --from-main
+bd ready
 
-# Work on React setup
+# CLAIM and LOCK
+bd update scribble-spl --status=in_progress
+git add .beads/ && git commit -m "chore: claim scribble-spl" && git push origin main
+
+# Create branch and work
+git checkout -b dev1/scribble-spl-init-react-vite
 # ... create files, test locally ...
 
 # 12:00 PM - Push changes
-git push origin scribble-spl-init-react-vite
+git push origin dev1/scribble-spl-init-react-vite
 gh pr create --title "Initialize React + Vite frontend" --body "Closes scribble-spl"
 
 # Wait for review from Senior Dev
@@ -111,14 +137,19 @@ bd close scribble-spl --reason="React + Vite setup complete, tested locally"
 ```bash
 # 9:00 AM - Start work
 git fetch origin && git pull origin main
-bd update scribble-5n7 --status=in_progress
-git checkout -b scribble-5n7-init-go-backend
+bd sync --from-main
+bd ready
 
-# Work on Go server
+# CLAIM and LOCK
+bd update scribble-5n7 --status=in_progress
+git add .beads/ && git commit -m "chore: claim scribble-5n7" && git push origin main
+
+# Create branch and work
+git checkout -b dev2/scribble-5n7-init-go-backend
 # ... create files, test locally ...
 
 # 1:00 PM - Push changes
-git push origin scribble-5n7-init-go-backend
+git push origin dev2/scribble-5n7-init-go-backend
 gh pr create --title "Initialize Go backend server" --body "Closes scribble-5n7"
 
 # Wait for review from Senior Dev
@@ -141,16 +172,19 @@ bd ready  # See what's unblocked after closing previous issue
 
 ## Git Workflow Rules
 
-### Branch Naming
-```
-dev{1|2}/scribble-{ISSUE_ID}-{short-description}
+### Branch Naming (CRITICAL for conflict prevention)
 
-Developer 1 (Frontend):
+**Format:** `dev{1|2}/scribble-{ISSUE_ID}-{short-description}`
+
+**Developer 1 (Frontend):**
+```
 dev1/scribble-ms2-init-nodejs-server
 dev1/scribble-spl-init-react-vite
 dev1/scribble-eg8-problem-ui
+```
 
-Developer 2 (Backend):
+**Developer 2 (Backend):**
+```
 dev2/scribble-5n7-init-go-backend
 dev2/scribble-kb9-postgres-schema
 dev2/scribble-efh-execute-endpoint
