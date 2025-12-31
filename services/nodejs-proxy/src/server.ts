@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'scribble-nodejs-proxy',
@@ -39,7 +39,8 @@ app.get('/api/health', (req: Request, res: Response) => {
 // - Proxy to Go backend
 
 // Error handling middleware
-app.use((err: any, req: Request, res: Response, next: any) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+app.use((err: any, _req: Request, res: Response, _next: any) => {
   console.error('Error:', err);
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error'
@@ -47,7 +48,7 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 });
 
 // 404 handler
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({
     error: 'Route not found'
   });
