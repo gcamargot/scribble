@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: scribble-postgres
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-scribble_dev}
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-scribble_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scribble-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: scribble-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scribble-network
+
+  go-backend:
+    build:
+      context: ./services/go-backend
+      dockerfile: Dockerfile.dev
+    container_name: scribble-go-backend
+    environment:
+      DATABASE_URL: postgres://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-dev_password}@postgres:5432/${DATABASE_NAME:-scribble_dev}
+      GO_ENV: development
+      GO_PORT: 8080
+      INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET:-dev_secret}
+      EXECUTOR_MODE: docker
+      LOG_LEVEL: debug
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/go-backend:/app
+      - /app/bin  # Ignore bin directory for hot reload
+    networks:
+      - scribble-network
+    command: >
+      sh -c "cd /app &&
+             go mod download &&
+             go run cmd/server/main.go"
+
+  nodejs-proxy:
+    build:
+      context: ./services/nodejs-proxy
+      dockerfile: Dockerfile.dev
+    container_name: scribble-nodejs-proxy
+    environment:
+      NODE_ENV: development
+      NODE_PORT: 3000
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-test_id}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-test_secret}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-http://localhost:3000/api/auth/discord/callback}
+      GO_BACKEND_URL: http://go-backend:8080
+      JWT_SECRET: ${JWT_SECRET:-dev_secret}
+      INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET:-dev_secret}
+      LOG_LEVEL: debug
+    ports:
+      - "3000:3000"
+    depends_on:
+      - go-backend
+    volumes:
+      - ./services/nodejs-proxy:/app
+      - /app/node_modules
+    networks:
+      - scribble-network
+    command: >
+      sh -c "cd /app &&
+             npm install &&
+             npm run dev"
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  scribble-network:
+    driver: bridge

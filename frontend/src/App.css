@@ -1,0 +1,121 @@
+/* Scribble Application Styles */
+
+.dark {
+  @apply bg-gray-900;
+}
+
+.darker {
+  @apply bg-gray-800;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out;
+}
+
+/* Utility Classes */
+.bg-dark {
+  @apply bg-gray-900;
+}
+
+.bg-darker {
+  @apply bg-gray-800;
+}
+
+.text-primary {
+  @apply text-blue-500;
+}
+
+.text-error {
+  @apply text-red-500;
+}
+
+.text-success {
+  @apply text-green-500;
+}
+
+.text-warning {
+  @apply text-yellow-500;
+}
+
+/* Layout Classes */
+.container-md {
+  @apply max-w-4xl mx-auto px-4;
+}
+
+.container-lg {
+  @apply max-w-6xl mx-auto px-4;
+}
+
+/* Card Component */
+.card {
+  @apply bg-gray-800 border border-gray-700 rounded-lg p-4;
+}
+
+.card-hover {
+  @apply card hover:border-blue-500 transition-colors cursor-pointer;
+}
+
+/* Button Classes */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.btn-primary {
+  @apply btn bg-blue-600 text-white hover:bg-blue-700;
+}
+
+.btn-secondary {
+  @apply btn bg-gray-700 text-white hover:bg-gray-600;
+}
+
+.btn-danger {
+  @apply btn bg-red-600 text-white hover:bg-red-700;
+}
+
+.btn-disabled {
+  @apply btn bg-gray-600 text-gray-400 cursor-not-allowed;
+}
+
+/* Form Classes */
+.input {
+  @apply w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500;
+}
+
+.textarea {
+  @apply input resize-vertical font-mono text-sm;
+}
+
+/* Loading State */
+.skeleton {
+  @apply bg-gray-700 rounded animate-pulse;
+}
+
+/* Responsive Grid */
+.grid-responsive {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4;
+}
