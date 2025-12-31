@@ -64,10 +64,8 @@ function App() {
         const { user: discordUser } = await response.json()
         setUser(discordUser)
 
-        // Authenticate with Discord using the access token
-        await discordSdk.commands.authenticate({
-          access_token: discordUser.accessToken
-        })
+        // Discord SDK is already authenticated after authorize() completes
+        // No need to call authenticate() again - the token stays server-side
 
       } catch (err) {
         console.error('Discord initialization error:', err)

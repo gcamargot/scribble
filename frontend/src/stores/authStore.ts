@@ -5,7 +5,6 @@ interface DiscordUser {
   username: string;
   discriminator: string;
   avatar: string | null;
-  accessToken?: string;
 }
 
 interface AuthState {

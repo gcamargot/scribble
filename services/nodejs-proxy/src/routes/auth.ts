@@ -101,6 +101,8 @@ router.post('/discord/callback', async (req: Request, res: Response) => {
     });
 
     // Return user information to frontend
+    // NOTE: Access token is NOT sent to frontend for security
+    // The token is only used server-side and stored in HTTP-only cookie
     return res.json({
       success: true,
       user: {
@@ -109,8 +111,7 @@ router.post('/discord/callback', async (req: Request, res: Response) => {
         discriminator: discordUser.discriminator,
         avatar: discordUser.avatar
           ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
-          : null,
-        accessToken: access_token
+          : null
       }
     });
   } catch (error) {
