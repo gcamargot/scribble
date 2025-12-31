@@ -5,6 +5,21 @@ import ProblemPage from './pages/ProblemPage'
 import './App.css'
 
 /**
+ * Check if we're running in development mode outside Discord
+ * Development mode is active when:
+ * - ?dev=true query param is present, OR
+ * - frame_id is missing (not inside Discord iframe)
+ */
+const isDevMode = (): boolean => {
+  const params = new URLSearchParams(window.location.search)
+  const hasDevParam = params.get('dev') === 'true'
+  const hasFrameId = params.has('frame_id')
+
+  // Dev mode if explicitly requested OR if not inside Discord
+  return hasDevParam || !hasFrameId
+}
+
+/**
  * Scribble - Discord LeetCode Activity
  *
  * This is the main App component that initializes the Discord SDK
@@ -15,6 +30,21 @@ function App() {
   const { user, isLoading, error, setUser, setLoading, setError } = useAuthStore()
 
   useEffect(() => {
+    /**
+     * Initialize in development mode with mock user
+     * Bypasses Discord SDK for local testing
+     */
+    const initializeDev = () => {
+      console.log('[Dev Mode] Running outside Discord - using mock user')
+      setUser({
+        id: 'dev-user-123',
+        username: 'DevUser',
+        discriminator: '0001',
+        avatar: null
+      })
+      setLoading(false)
+    }
+
     /**
      * Initialize Discord SDK and authenticate user
      *
@@ -75,7 +105,12 @@ function App() {
       }
     }
 
-    initializeDiscord()
+    // Use dev mode if outside Discord, otherwise normal Discord flow
+    if (isDevMode()) {
+      initializeDev()
+    } else {
+      initializeDiscord()
+    }
   }, [setUser, setLoading, setError])
 
   if (isLoading) {
