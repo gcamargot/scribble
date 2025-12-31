@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { DiscordSDK } from '@discord/embedded-app-sdk'
 import { useAuthStore } from './stores/authStore'
+import ProblemPage from './pages/ProblemPage'
 import './App.css'
 
 /**
@@ -115,7 +116,7 @@ function App() {
   }
 
   return (
-    <div className="bg-dark min-h-screen text-white">
+    <div className="bg-dark h-screen flex flex-col text-white">
       <header className="bg-darker border-b border-gray-700 p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold text-primary">Scribble</h1>
@@ -132,18 +133,8 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4">
-        {/* TODO: Add main application content here */}
-        <div className="mt-8 p-6 bg-darker rounded-lg border border-gray-700">
-          <h2 className="text-xl font-bold mb-4">Welcome to Scribble!</h2>
-          <p className="text-gray-300 mb-4">
-            This is where your daily coding challenges will appear.
-          </p>
-          <p className="text-sm text-gray-400">
-            The main UI components will be added as development progresses.
-            Check the issue tracker for tasks: <code>bd ready</code>
-          </p>
-        </div>
+      <main className="flex-1 overflow-hidden">
+        <ProblemPage />
       </main>
     </div>
   )
