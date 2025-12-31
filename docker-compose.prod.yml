@@ -1,0 +1,113 @@
+# Production Docker Compose configuration for local testing
+# This file uses production Dockerfiles to test the POC deployment locally
+# before deploying to a real production environment
+#
+# Usage:
+#   docker-compose -f docker-compose.prod.yml up --build
+#
+# Make sure to set environment variables in .env file:
+#   DISCORD_CLIENT_ID=your_client_id
+#   DISCORD_CLIENT_SECRET=your_client_secret
+#   DISCORD_REDIRECT_URI=http://localhost/api/auth/discord/callback
+#   JWT_SECRET=your_jwt_secret
+#   INTERNAL_AUTH_SECRET=your_internal_secret
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: scribble-postgres-prod
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-scribble_prod}
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-prod-data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-scribble_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scribble-prod-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: scribble-redis-prod
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - scribble-prod-network
+
+  go-backend:
+    build:
+      context: ./services/go-backend
+      dockerfile: Dockerfile.dev  # TODO: Create production Dockerfile (dev2 task)
+    container_name: scribble-go-backend-prod
+    environment:
+      DATABASE_URL: postgres://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD}@postgres:5432/${DATABASE_NAME:-scribble_prod}
+      GO_ENV: production
+      GO_PORT: 8080
+      INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET}
+      EXECUTOR_MODE: docker
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - scribble-prod-network
+    restart: unless-stopped
+
+  nodejs-proxy:
+    build:
+      context: ./services/nodejs-proxy
+      dockerfile: Dockerfile
+    container_name: scribble-nodejs-proxy-prod
+    environment:
+      NODE_ENV: production
+      NODE_PORT: 3000
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
+      GO_BACKEND_URL: http://go-backend:8080
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET}
+      LOG_LEVEL: info
+    depends_on:
+      - go-backend
+    networks:
+      - scribble-prod-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: scribble-frontend-prod
+    ports:
+      - "80:80"
+    depends_on:
+      - nodejs-proxy
+    networks:
+      - scribble-prod-network
+    restart: unless-stopped
+
+volumes:
+  postgres-prod-data:
+    driver: local
+
+networks:
+  scribble-prod-network:
+    driver: bridge
