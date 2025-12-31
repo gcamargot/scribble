@@ -11,6 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/nahtao97/scribble/internal/db"
+	"github.com/nahtao97/scribble/internal/handlers"
+	"github.com/nahtao97/scribble/internal/services"
 )
 
 func init() {
@@ -19,6 +22,21 @@ func init() {
 }
 
 func main() {
+	// Initialize database connection
+	database, err := db.NewDatabase()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer database.Close()
+
+	// Verify database connection
+	if err := database.Ping(); err != nil {
+		fmt.Fprintf(os.Stderr, "Database ping failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Database connection established")
+
 	// Set Gin mode based on environment
 	if os.Getenv("GO_ENV") == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -35,11 +53,35 @@ func main() {
 		})
 	})
 
-	// TODO: Add more routes here
-	// - Problem retrieval endpoints
-	// - Code execution endpoints
-	// - Leaderboard endpoints
-	// - Streak endpoints
+	// Initialize services
+	problemService := services.NewProblemService(database.GetConnection())
+
+	// Initialize handlers
+	problemHandler := handlers.NewProblemHandler(problemService)
+
+	// Register API routes under /internal prefix
+	// These endpoints are called by the Node.js proxy (internal service-to-service)
+	internal := router.Group("/internal")
+	{
+		// Problem endpoints
+		problems := internal.Group("/problems")
+		{
+			// GET /internal/problems/daily/:date - Get daily challenge
+			// :date can be "today" or YYYY-MM-DD format
+			problems.GET("/daily/:date", problemHandler.GetDailyChallengeByDate)
+
+			// GET /internal/problems/:id - Get specific problem by ID
+			problems.GET("/:id", problemHandler.GetProblemByID)
+
+			// GET /internal/problems/:id/test-cases - Get test cases for a problem
+			// Query param: all=true to include hidden tests (for code executor)
+			problems.GET("/:id/test-cases", problemHandler.GetTestCasesByProblemID)
+		}
+
+		// TODO: Add submission endpoints
+		// TODO: Add leaderboard endpoints
+		// TODO: Add streak endpoints
+	}
 
 	// Configure HTTP server
 	port := os.Getenv("GO_PORT")
