@@ -1,0 +1,103 @@
+# CronJob for daily challenge selection
+# Runs at midnight UTC every day to select the next daily challenge
+#
+# Prerequisites:
+# 1. Build and push the daily-challenge-cron image:
+#    docker build -t scribble-daily-challenge:latest \
+#      --target daily-challenge \
+#      -f services/go-backend/Dockerfile .
+#
+# 2. Create database credentials secret:
+#    kubectl create secret generic scribble-db-credentials \
+#      --from-literal=DATABASE_URL="postgres://..."
+#
+# Apply: kubectl apply -f daily-challenge.yaml
+#
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scribble-daily-challenge
+  namespace: default  # Update to match your namespace
+  labels:
+    app: scribble
+    component: daily-challenge
+spec:
+  # Run at midnight UTC every day
+  schedule: "0 0 * * *"
+  # Timezone support (K8s 1.27+)
+  # timeZone: "UTC"
+
+  # Job execution policy
+  concurrencyPolicy: Forbid  # Don't run if previous job still running
+  startingDeadlineSeconds: 600  # Fail if job can't start within 10 minutes
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+  jobTemplate:
+    metadata:
+      labels:
+        app: scribble
+        component: daily-challenge
+    spec:
+      # Don't retry on failure - manual intervention needed
+      backoffLimit: 1
+      # Job timeout: 5 minutes max
+      activeDeadlineSeconds: 300
+
+      template:
+        metadata:
+          labels:
+            app: scribble
+            component: daily-challenge
+        spec:
+          restartPolicy: Never
+
+          # Security: Run as non-root
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+
+          containers:
+            - name: daily-challenge
+              image: scribble-daily-challenge:latest
+              imagePullPolicy: IfNotPresent
+
+              # Resource limits for the job
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "128Mi"
+
+              # Environment variables for database connection
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: scribble-db-credentials
+                      key: DATABASE_URL
+
+              # Container security
+              securityContext:
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+---
+# Alternative: ConfigMap-based schedule for easier updates
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: daily-challenge-config
+  namespace: default
+  labels:
+    app: scribble
+    component: daily-challenge
+data:
+  # Schedule can be modified without redeploying
+  SCHEDULE: "0 0 * * *"
+  LOG_LEVEL: "info"
