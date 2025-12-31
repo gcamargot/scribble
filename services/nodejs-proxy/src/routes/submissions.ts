@@ -1,6 +1,10 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import { submissionsProxy } from '../middleware/proxy.js';
 
 const router = Router();
+
+// Check if we should use the real backend or mock
+const USE_MOCK_BACKEND = process.env.USE_MOCK_BACKEND === 'true';
 
 interface SubmissionRequest {
   code: string;
@@ -11,11 +15,12 @@ interface SubmissionRequest {
 /**
  * POST /api/submissions
  *
- * Hardcoded submission endpoint for POC
- * Returns fake "Accepted" response with mock metrics
+ * Submit code for execution.
+ * In production: proxies to Go backend /internal/execute
+ * In development with USE_MOCK_BACKEND=true: returns mock response
  */
-router.post('/', (_req: Request, res: Response): void => {
-  const { code, language, problemId } = _req.body as SubmissionRequest;
+const handleSubmission: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
+  const { code, language, problemId } = req.body as SubmissionRequest;
 
   // Basic validation
   if (!code || !language || !problemId) {
@@ -25,54 +30,55 @@ router.post('/', (_req: Request, res: Response): void => {
     return;
   }
 
-  // Simulate processing delay
-  setTimeout(() => {
-    // Return hardcoded "Accepted" response with fake metrics
-    res.json({
-      success: true,
-      status: 'Accepted',
-      verdict: 'Accepted',
-      executionTime: '45ms',
-      memoryUsed: '14.2MB',
-      testsPassed: 3,
-      testsTotal: 3,
-      percentile: {
-        time: 78,
-        memory: 65
-      },
-      message: 'All test cases passed!',
-      submission: {
-        id: Math.floor(Math.random() * 100000),
-        problemId,
-        language,
-        timestamp: new Date().toISOString(),
-        codeLength: code.length
-      }
-    });
-  }, 800); // Simulate 800ms processing time
-});
+  // If mock mode enabled, return fake response
+  if (USE_MOCK_BACKEND) {
+    setTimeout(() => {
+      res.json({
+        success: true,
+        status: 'Accepted',
+        verdict: 'Accepted',
+        executionTime: '45ms',
+        memoryUsed: '14.2MB',
+        testsPassed: 3,
+        testsTotal: 3,
+        percentile: {
+          time: 78,
+          memory: 65
+        },
+        message: 'All test cases passed!',
+        submission: {
+          id: Math.floor(Math.random() * 100000),
+          problemId,
+          language,
+          timestamp: new Date().toISOString(),
+          codeLength: code.length
+        }
+      });
+    }, 800);
+    return;
+  }
+
+  // Forward to Go backend via proxy
+  next();
+};
+
+// Apply validation then proxy
+router.post('/', handleSubmission, submissionsProxy);
 
 /**
  * GET /api/submissions/:id
  *
- * Get submission details (placeholder for future)
+ * Get submission details by ID
+ * Proxied to Go backend
  */
-router.get('/:id', (_req: Request, res: Response) => {
-  return res.json({
-    message: 'Submission details endpoint - coming soon'
-  });
-});
+router.get('/:id', submissionsProxy);
 
 /**
  * GET /api/submissions/history
  *
- * Get user submission history (placeholder for future)
+ * Get user submission history
+ * Proxied to Go backend
  */
-router.get('/history', (_req: Request, res: Response) => {
-  return res.json({
-    submissions: [],
-    message: 'Submission history - coming soon'
-  });
-});
+router.get('/history', submissionsProxy);
 
 export default router;
