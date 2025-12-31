@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
+import { authRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
@@ -35,8 +36,10 @@ interface DiscordUser {
  *
  * Exchange Discord authorization code for access token,
  * fetch user information, generate JWT, and set secure cookie.
+ *
+ * Protected by rate limiting to prevent brute force attacks.
  */
-router.post('/discord/callback', async (req: Request, res: Response) => {
+router.post('/discord/callback', authRateLimiter, async (req: Request, res: Response) => {
   try {
     const { code } = req.body;
 
