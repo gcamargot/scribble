@@ -4,47 +4,28 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/nahtao97/scribble/internal/server"
 )
 
 func init() {
-	// Load .env file if it exists
+	// Load .env file if it exists (for local development)
+	// Ignore error if .env doesn't exist (it's optional)
 	_ = godotenv.Load()
 }
 
 func main() {
-	// Set Gin mode
-	if os.Getenv("GO_ENV") == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	// Load server configuration from environment variables
+	config := server.NewConfig()
+	fmt.Println(config)
 
-	// Initialize router
-	router := gin.Default()
+	// Create server instance
+	srv := server.NewServer(config)
 
-	// Health check endpoint
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status": "ok",
-			"service": "scribble-go-backend",
-		})
-	})
-
-	// TODO: Add more routes here
-	// - Problem retrieval endpoints
-	// - Code execution endpoints
-	// - Leaderboard endpoints
-	// - Streak endpoints
-
-	// Start server
-	port := os.Getenv("GO_PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	fmt.Printf("Starting Go backend on port %s...\n", port)
-	if err := router.Run(":" + port); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to start server: %v\n", err)
+	// Start the server
+	// This will block until the server is stopped or encounters a fatal error
+	if err := srv.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
 		os.Exit(1)
 	}
 }
