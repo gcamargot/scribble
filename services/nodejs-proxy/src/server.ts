@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import authRouter from './routes/auth.js';
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +22,7 @@ app.use(cors({
 }));
 app.use(morgan('combined'));
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.static('public'));
 
 // Health check endpoint
@@ -31,8 +34,10 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
-// TODO: Add routes
-// - Authentication routes (/api/auth/*)
+// Routes
+app.use('/api/auth', authRouter);
+
+// TODO: Add additional routes
 // - Problems routes (/api/problems/*)
 // - Submissions routes (/api/submissions/*)
 // - Leaderboards routes (/api/leaderboards/*)
