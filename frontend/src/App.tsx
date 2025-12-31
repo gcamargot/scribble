@@ -53,8 +53,7 @@ function App() {
           response_type: 'code',
           state: '',
           prompt: 'none',
-          scope: ['identify', 'guilds'],
-          redirect_uri: window.location.href
+          scope: ['identify', 'guilds']
         })
 
         // Send code to our backend to exchange for access token

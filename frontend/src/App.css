@@ -107,7 +107,7 @@
 }
 
 .textarea {
-  @apply input resize-vertical font-mono text-sm;
+  @apply input resize-y font-mono text-sm;
 }
 
 /* Loading State */
