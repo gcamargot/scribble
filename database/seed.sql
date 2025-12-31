@@ -143,6 +143,195 @@ INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
  'false'::jsonb,
  false);
 
+-- Sample Test Cases for Climbing Stairs
+INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
+((SELECT id FROM problems WHERE slug = 'climbing-stairs'),
+ '{"n": 2}'::jsonb,
+ '2'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'climbing-stairs'),
+ '{"n": 3}'::jsonb,
+ '3'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'climbing-stairs'),
+ '{"n": 1}'::jsonb,
+ '1'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'climbing-stairs'),
+ '{"n": 5}'::jsonb,
+ '8'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'climbing-stairs'),
+ '{"n": 10}'::jsonb,
+ '89'::jsonb,
+ false);
+
+-- Sample Test Cases for Best Time to Buy and Sell Stock
+INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
+((SELECT id FROM problems WHERE slug = 'best-time-buy-sell-stock'),
+ '{"prices": [7,1,5,3,6,4]}'::jsonb,
+ '5'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'best-time-buy-sell-stock'),
+ '{"prices": [7,6,4,3,1]}'::jsonb,
+ '0'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'best-time-buy-sell-stock'),
+ '{"prices": [1,2]}'::jsonb,
+ '1'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'best-time-buy-sell-stock'),
+ '{"prices": [2,4,1]}'::jsonb,
+ '2'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'best-time-buy-sell-stock'),
+ '{"prices": [3,2,6,5,0,3]}'::jsonb,
+ '4'::jsonb,
+ false);
+
+-- Sample Test Cases for Longest Substring Without Repeating Characters
+INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
+((SELECT id FROM problems WHERE slug = 'longest-substring-without-repeating'),
+ '{"s": "abcabcbb"}'::jsonb,
+ '3'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'longest-substring-without-repeating'),
+ '{"s": "bbbbb"}'::jsonb,
+ '1'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'longest-substring-without-repeating'),
+ '{"s": "pwwkew"}'::jsonb,
+ '3'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'longest-substring-without-repeating'),
+ '{"s": ""}'::jsonb,
+ '0'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'longest-substring-without-repeating'),
+ '{"s": "dvdf"}'::jsonb,
+ '3'::jsonb,
+ false);
+
+-- Sample Test Cases for Number of Islands
+INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
+((SELECT id FROM problems WHERE slug = 'number-of-islands'),
+ '{"grid": [["1","1","1","1","0"],["1","1","0","1","0"],["1","1","0","0","0"],["0","0","0","0","0"]]}'::jsonb,
+ '1'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'number-of-islands'),
+ '{"grid": [["1","1","0","0","0"],["1","1","0","0","0"],["0","0","1","0","0"],["0","0","0","1","1"]]}'::jsonb,
+ '3'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'number-of-islands'),
+ '{"grid": [["1"]]}'::jsonb,
+ '1'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'number-of-islands'),
+ '{"grid": [["0"]]}'::jsonb,
+ '0'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'number-of-islands'),
+ '{"grid": [["1","0","1","0","1"]]}'::jsonb,
+ '3'::jsonb,
+ false);
+
+-- Sample Test Cases for Binary Tree Level Order Traversal
+INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
+((SELECT id FROM problems WHERE slug = 'binary-tree-level-order'),
+ '{"root": [3,9,20,null,null,15,7]}'::jsonb,
+ '[[3],[9,20],[15,7]]'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'binary-tree-level-order'),
+ '{"root": [1]}'::jsonb,
+ '[[1]]'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'binary-tree-level-order'),
+ '{"root": []}'::jsonb,
+ '[]'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'binary-tree-level-order'),
+ '{"root": [1,2,3,4,5]}'::jsonb,
+ '[[1],[2,3],[4,5]]'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'binary-tree-level-order'),
+ '{"root": [1,null,2]}'::jsonb,
+ '[[1],[2]]'::jsonb,
+ false);
+
+-- Sample Test Cases for Median of Two Sorted Arrays
+INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
+((SELECT id FROM problems WHERE slug = 'median-two-sorted-arrays'),
+ '{"nums1": [1,3], "nums2": [2]}'::jsonb,
+ '2.0'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'median-two-sorted-arrays'),
+ '{"nums1": [1,2], "nums2": [3,4]}'::jsonb,
+ '2.5'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'median-two-sorted-arrays'),
+ '{"nums1": [], "nums2": [1]}'::jsonb,
+ '1.0'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'median-two-sorted-arrays'),
+ '{"nums1": [2], "nums2": []}'::jsonb,
+ '2.0'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'median-two-sorted-arrays'),
+ '{"nums1": [1,2,3,4,5], "nums2": [6,7,8,9,10]}'::jsonb,
+ '5.5'::jsonb,
+ false);
+
+-- Sample Test Cases for Merge K Sorted Lists
+INSERT INTO test_cases (problem_id, input, expected_output, is_sample) VALUES
+((SELECT id FROM problems WHERE slug = 'merge-k-sorted-lists'),
+ '{"lists": [[1,4,5],[1,3,4],[2,6]]}'::jsonb,
+ '[1,1,2,3,4,4,5,6]'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'merge-k-sorted-lists'),
+ '{"lists": []}'::jsonb,
+ '[]'::jsonb,
+ true),
+
+((SELECT id FROM problems WHERE slug = 'merge-k-sorted-lists'),
+ '{"lists": [[]]}'::jsonb,
+ '[]'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'merge-k-sorted-lists'),
+ '{"lists": [[1],[2],[3]]}'::jsonb,
+ '[1,2,3]'::jsonb,
+ false),
+
+((SELECT id FROM problems WHERE slug = 'merge-k-sorted-lists'),
+ '{"lists": [[1,2,3],[4,5,6]]}'::jsonb,
+ '[1,2,3,4,5,6]'::jsonb,
+ false);
+
 -- Create a sample daily challenge for today
 INSERT INTO daily_challenges (problem_id, challenge_date)
 VALUES ((SELECT id FROM problems WHERE slug = 'two-sum'), CURRENT_DATE)
