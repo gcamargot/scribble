@@ -1,0 +1,79 @@
+# NetworkPolicy for Scribble executor pod isolation
+# Denies ALL network traffic (ingress and egress) for executor pods
+# This provides defense-in-depth alongside gVisor sandboxing
+#
+# Note: DNS is also disabled at pod level (DNSPolicy: None) in jobs.go
+# This NetworkPolicy ensures network isolation even if pod config is bypassed
+#
+# Prerequisites:
+# - Kubernetes cluster must have a CNI that supports NetworkPolicy
+#   (Calico, Cilium, Weave Net, etc.)
+# - kube-proxy alone does NOT enforce NetworkPolicies
+#
+# Apply: kubectl apply -f network-policies.yaml
+# Test: kubectl run test --image=busybox --rm -it --restart=Never -- wget -T5 -O- http://google.com
+#       (should fail if policy is working)
+#
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: executor-deny-all
+  namespace: default  # Update to match K8S_NAMESPACE env var
+  labels:
+    app: scribble
+    component: executor
+    purpose: security
+spec:
+  # Select all executor pods by label
+  podSelector:
+    matchLabels:
+      app: scribble-executor
+  # Deny ALL ingress (no incoming traffic)
+  # Empty ingress array = deny all ingress
+  policyTypes:
+    - Ingress
+    - Egress
+  # No ingress rules = deny all incoming
+  ingress: []
+  # No egress rules = deny all outgoing
+  egress: []
+---
+# Additional NetworkPolicy for production environments
+# This policy is namespace-scoped and more restrictive
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: executor-deny-all-production
+  namespace: scribble-executors  # Dedicated executor namespace
+  labels:
+    app: scribble
+    component: executor
+    environment: production
+    purpose: security
+spec:
+  # Select ALL pods in the namespace (defense in depth)
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # Deny all traffic
+  ingress: []
+  egress: []
+---
+# Default deny policy for executor namespace
+# Applied to ALL pods as a catch-all
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: scribble-executors
+  labels:
+    app: scribble
+    purpose: default-deny
+spec:
+  # Empty selector = all pods in namespace
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # No rules = deny all
