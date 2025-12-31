@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"os"
@@ -103,12 +105,45 @@ func main() {
 	// Catch SIGINT (Ctrl+C) and SIGTERM (Kubernetes pod termination)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
+	// Check if mTLS is enabled
+	tlsCert := os.Getenv("TLS_CERT_PATH")
+	tlsKey := os.Getenv("TLS_KEY_PATH")
+	tlsCA := os.Getenv("TLS_CA_PATH")
+	mtlsEnabled := tlsCert != "" && tlsKey != "" && tlsCA != ""
+
 	// Start server in a goroutine so it doesn't block shutdown handling
 	go func() {
-		fmt.Printf("Starting Go backend server on port %s (env: %s)\n", port, os.Getenv("GO_ENV"))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
-			os.Exit(1)
+		if mtlsEnabled {
+			// Configure mTLS
+			caCert, err := os.ReadFile(tlsCA)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to read CA cert: %v\n", err)
+				os.Exit(1)
+			}
+
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				fmt.Fprintf(os.Stderr, "Failed to parse CA cert\n")
+				os.Exit(1)
+			}
+
+			srv.TLSConfig = &tls.Config{
+				ClientCAs:  caCertPool,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				MinVersion: tls.VersionTLS12,
+			}
+
+			fmt.Printf("Starting Go backend server with mTLS on port %s (env: %s)\n", port, os.Getenv("GO_ENV"))
+			if err := srv.ListenAndServeTLS(tlsCert, tlsKey); err != nil && err != http.ErrServerClosed {
+				fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			fmt.Printf("Starting Go backend server on port %s (env: %s)\n", port, os.Getenv("GO_ENV"))
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	}()
 
