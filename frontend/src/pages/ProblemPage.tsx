@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Editor from '@monaco-editor/react';
+import axios from 'axios';
 
 // Hardcoded Two Sum problem for POC
 const PROBLEM = {
@@ -76,14 +77,60 @@ public:
 
 type Language = keyof typeof STARTER_CODE;
 
+interface SubmissionResult {
+  success: boolean;
+  status: string;
+  verdict: string;
+  executionTime: string;
+  memoryUsed: string;
+  testsPassed: number;
+  testsTotal: number;
+  percentile: {
+    time: number;
+    memory: number;
+  };
+  message: string;
+}
+
 export default function ProblemPage() {
   const [language, setLanguage] = useState<Language>('python');
   const [code, setCode] = useState(STARTER_CODE[language]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<SubmissionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Update code when language changes
   const handleLanguageChange = (newLanguage: Language) => {
     setLanguage(newLanguage);
     setCode(STARTER_CODE[newLanguage]);
+    setResult(null); // Clear previous results
+    setError(null);
+  };
+
+  // Handle code submission
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const response = await axios.post('/api/submissions', {
+        code,
+        language,
+        problemId: PROBLEM.id
+      });
+
+      setResult(response.data);
+    } catch (err) {
+      console.error('Submission error:', err);
+      setError(
+        axios.isAxiosError(err)
+          ? err.response?.data?.error || 'Failed to submit solution'
+          : 'An unexpected error occurred'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -203,10 +250,59 @@ export default function ProblemPage() {
             </div>
           </div>
 
+          {/* Results Display */}
+          {result && (
+            <div className="bg-gray-800 border-t border-gray-700 p-4">
+              <div className={`rounded-lg p-4 ${
+                result.verdict === 'Accepted'
+                  ? 'bg-green-900 border border-green-700'
+                  : 'bg-red-900 border border-red-700'
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className={`font-bold text-lg ${
+                    result.verdict === 'Accepted' ? 'text-green-300' : 'text-red-300'
+                  }`}>
+                    {result.verdict}
+                  </h3>
+                  <span className="text-gray-300 text-sm">
+                    {result.testsPassed}/{result.testsTotal} test cases passed
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-gray-900 rounded p-2">
+                    <p className="text-gray-400 text-xs mb-1">Execution Time</p>
+                    <p className="text-white font-mono font-semibold">{result.executionTime}</p>
+                    <p className="text-gray-400 text-xs mt-1">Faster than {result.percentile.time}%</p>
+                  </div>
+                  <div className="bg-gray-900 rounded p-2">
+                    <p className="text-gray-400 text-xs mb-1">Memory Used</p>
+                    <p className="text-white font-mono font-semibold">{result.memoryUsed}</p>
+                    <p className="text-gray-400 text-xs mt-1">Better than {result.percentile.memory}%</p>
+                  </div>
+                </div>
+                <p className="text-gray-300 text-sm">{result.message}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div className="bg-gray-800 border-t border-gray-700 p-4">
+              <div className="bg-red-900 border border-red-700 rounded-lg p-4">
+                <h3 className="font-bold text-lg text-red-300 mb-2">Submission Error</h3>
+                <p className="text-gray-300 text-sm">{error}</p>
+              </div>
+            </div>
+          )}
+
           {/* Submit Button */}
           <div className="bg-gray-800 border-t border-gray-700 p-4">
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
-              Submit Solution
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Solution'}
             </button>
           </div>
         </div>
