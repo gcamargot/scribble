@@ -100,6 +100,21 @@ func (jm *JobManager) CreateExecutionJob(ctx context.Context, params ExecutionJo
 	// ActiveDeadlineSeconds: kill job after 10 seconds
 	var activeDeadlineSeconds int64 = 10
 
+	// Get RuntimeClass from environment (gVisor for sandboxed execution)
+	runtimeClassName := os.Getenv("K8S_RUNTIME_CLASS")
+	if runtimeClassName == "" {
+		runtimeClassName = "gvisor" // Default to gVisor for security
+	}
+
+	// Security context for container isolation
+	// - Run as non-root user (UID 1000 matches coderunner in executor image)
+	// - Read-only root filesystem prevents malicious writes
+	// - No privilege escalation allowed
+	runAsNonRoot := true
+	runAsUser := int64(1000)
+	readOnlyRootFilesystem := true
+	allowPrivilegeEscalation := false
+
 	// Job specification
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -123,7 +138,24 @@ func (jm *JobManager) CreateExecutionJob(ctx context.Context, params ExecutionJo
 					},
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
+					RestartPolicy:    corev1.RestartPolicyNever,
+					RuntimeClassName: &runtimeClassName,
+					// Disable automounting service account token (not needed for code execution)
+					AutomountServiceAccountToken: func() *bool { b := false; return &b }(),
+					// Pod-level security context
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: &runAsNonRoot,
+						RunAsUser:    &runAsUser,
+						// Ensure all containers run with same security restrictions
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					// Disable DNS resolution (containers don't need network)
+					DNSPolicy: corev1.DNSNone,
+					DNSConfig: &corev1.PodDNSConfig{
+						Nameservers: []string{},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:  "executor",
@@ -151,6 +183,39 @@ func (jm *JobManager) CreateExecutionJob(ctx context.Context, params ExecutionJo
 									// Request same as limit for guaranteed QoS
 									corev1.ResourceCPU:    cpuLimit,
 									corev1.ResourceMemory: memoryLimit,
+								},
+							},
+							// Container-level security context
+							SecurityContext: &corev1.SecurityContext{
+								ReadOnlyRootFilesystem:   &readOnlyRootFilesystem,
+								AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+								RunAsNonRoot:             &runAsNonRoot,
+								RunAsUser:                &runAsUser,
+								Capabilities: &corev1.Capabilities{
+									// Drop all capabilities for maximum isolation
+									Drop: []corev1.Capability{"ALL"},
+								},
+							},
+							// Write /tmp for temporary files (required by some languages)
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "tmp",
+									MountPath: "/tmp",
+								},
+							},
+						},
+					},
+					// EmptyDir volume for /tmp (ephemeral, secure)
+					Volumes: []corev1.Volume{
+						{
+							Name: "tmp",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{
+									// Limit /tmp to 64Mi to prevent disk abuse
+									SizeLimit: func() *resource.Quantity {
+										q := resource.MustParse("64Mi")
+										return &q
+									}(),
 								},
 							},
 						},

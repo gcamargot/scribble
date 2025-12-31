@@ -1,0 +1,48 @@
+# RuntimeClass for gVisor sandboxed execution
+# gVisor provides an additional layer of isolation by intercepting
+# and handling system calls in user space.
+#
+# Prerequisites:
+# 1. Install gVisor (runsc) on all Kubernetes nodes:
+#    https://gvisor.dev/docs/user_guide/install/
+#
+# 2. Configure containerd to use runsc:
+#    Add to /etc/containerd/config.toml:
+#    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runsc]
+#      runtime_type = "io.containerd.runsc.v1"
+#
+# 3. Restart containerd: systemctl restart containerd
+#
+# 4. Apply this RuntimeClass: kubectl apply -f runtime-class.yaml
+#
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+  labels:
+    app: scribble
+    component: executor
+handler: runsc
+# Scheduling constraints (optional)
+# Uncomment if gVisor is only available on specific nodes
+# scheduling:
+#   nodeSelector:
+#     gvisor: "true"
+---
+# Alternative RuntimeClass with stricter scheduling for production
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor-production
+  labels:
+    app: scribble
+    component: executor
+    environment: production
+handler: runsc
+scheduling:
+  nodeSelector:
+    scribble.io/executor: "true"
+  tolerations:
+    - key: "scribble.io/executor"
+      operator: "Exists"
+      effect: "NoSchedule"
