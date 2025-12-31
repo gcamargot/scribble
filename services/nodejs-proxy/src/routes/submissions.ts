@@ -66,6 +66,14 @@ const handleSubmission: RequestHandler = (req: Request, res: Response, next: Nex
 router.post('/', handleSubmission, submissionsProxy);
 
 /**
+ * GET /api/submissions/history
+ *
+ * Get user submission history
+ * Proxied to Go backend
+ */
+router.get('/history', submissionsProxy);
+
+/**
  * GET /api/submissions/:id
  *
  * Get submission details by ID
@@ -74,11 +82,13 @@ router.post('/', handleSubmission, submissionsProxy);
 router.get('/:id', submissionsProxy);
 
 /**
- * GET /api/submissions/history
+ * GET /api/submissions/:id/percentile
  *
- * Get user submission history
+ * Get percentile comparison metrics for a submission
+ * Returns execution time and memory percentile rankings
+ * e.g., "Faster than 78% of submissions"
  * Proxied to Go backend
  */
-router.get('/history', submissionsProxy);
+router.get('/:id/percentile', submissionsProxy);
 
 export default router;

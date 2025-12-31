@@ -55,9 +55,11 @@ func main() {
 
 	// Initialize services
 	problemService := services.NewProblemService(database.GetConnection())
+	submissionService := services.NewSubmissionService(database.GetConnection())
 
 	// Initialize handlers
 	problemHandler := handlers.NewProblemHandler(problemService)
+	submissionHandler := handlers.NewSubmissionHandler(submissionService)
 
 	// Register API routes under /internal prefix
 	// These endpoints are called by the Node.js proxy (internal service-to-service)
@@ -76,9 +78,22 @@ func main() {
 			// GET /internal/problems/:id/test-cases - Get test cases for a problem
 			// Query param: all=true to include hidden tests (for code executor)
 			problems.GET("/:id/test-cases", problemHandler.GetTestCasesByProblemID)
+
+			// GET /internal/problems/:id/stats - Get aggregate submission statistics
+			problems.GET("/:id/stats", submissionHandler.GetProblemStats)
 		}
 
-		// TODO: Add submission endpoints
+		// Submission endpoints
+		submissions := internal.Group("/submissions")
+		{
+			// GET /internal/submissions/:id - Get submission by ID
+			submissions.GET("/:id", submissionHandler.GetSubmissionByID)
+
+			// GET /internal/submissions/:id/percentile - Get percentile comparison metrics
+			// Returns "Faster than X% of submissions", "Uses less memory than Y%"
+			submissions.GET("/:id/percentile", submissionHandler.GetPercentileMetrics)
+		}
+
 		// TODO: Add leaderboard endpoints
 		// TODO: Add streak endpoints
 	}
