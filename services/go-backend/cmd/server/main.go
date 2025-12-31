@@ -17,7 +17,6 @@ func init() {
 func main() {
 	// Load server configuration from environment variables
 	config := server.NewConfig()
-	fmt.Println(config)
 
 	// Create server instance
 	srv := server.NewServer(config)

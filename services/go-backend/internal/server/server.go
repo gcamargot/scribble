@@ -1,7 +1,13 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -61,18 +67,59 @@ func (s *Server) versionHandler(c *gin.Context) {
 	})
 }
 
-// Start starts the HTTP server on the configured port
+// Start starts the HTTP server with graceful shutdown support
+// Implements graceful shutdown for Kubernetes compatibility:
+// - Listens for SIGTERM (K8s pod termination) and SIGINT (Ctrl+C)
+// - Drains existing connections before shutting down
+// - 15-second shutdown timeout (fits within K8s 30s termination grace period)
 func (s *Server) Start() error {
 	// Register all routes before starting the server
 	s.RegisterRoutes()
 
 	addr := fmt.Sprintf(":%s", s.config.Port)
-	fmt.Printf("Starting Go backend server on %s (env: %s)\n", addr, s.config.Env)
 
-	if err := s.router.Run(addr); err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
+	// Create HTTP server with timeouts to prevent resource exhaustion
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: s.router,
+		// ReadTimeout prevents slow header attacks (slowloris)
+		ReadTimeout: 15 * time.Second,
+		// WriteTimeout prevents slow response writes from holding connections
+		WriteTimeout: 15 * time.Second,
+		// IdleTimeout cleans up idle keep-alive connections
+		IdleTimeout: 60 * time.Second,
 	}
 
+	// Setup graceful shutdown signal handling
+	// Buffered channel prevents signal loss if server isn't ready
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in goroutine so we can listen for shutdown signals
+	go func() {
+		fmt.Printf("Starting Go backend server on port %s (env: %s)\n", s.config.Port, s.config.Env)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Block until we receive a shutdown signal
+	<-quit
+	fmt.Println("\nReceived shutdown signal, initiating graceful shutdown...")
+
+	// Create context with 15-second timeout for graceful shutdown
+	// This allows in-flight requests to complete before forceful termination
+	// 15s ensures we finish before Kubernetes 30s terminationGracePeriodSeconds
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Attempt graceful shutdown
+	if err := srv.Shutdown(ctx); err != nil {
+		return fmt.Errorf("error during graceful shutdown: %w", err)
+	}
+
+	fmt.Println("Server shutdown complete. All connections closed gracefully.")
 	return nil
 }
 
