@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { DiscordSDK } from '@discord/embedded-app-sdk'
+import { useAuthStore } from './stores/authStore'
 import './App.css'
 
 /**
@@ -9,16 +10,8 @@ import './App.css'
  * and provides authentication context to the entire application.
  */
 
-interface DiscordUser {
-  id: string
-  username: string
-  avatar?: string
-}
-
 function App() {
-  const [discordUser, setDiscordUser] = useState<DiscordUser | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { user, isLoading, error, setUser, setLoading, setError } = useAuthStore()
 
   useEffect(() => {
     /**
@@ -67,12 +60,12 @@ function App() {
           throw new Error('Failed to authenticate with backend')
         }
 
-        const { user } = await response.json()
-        setDiscordUser(user)
+        const { user: discordUser } = await response.json()
+        setUser(discordUser)
 
         // Authenticate with Discord using the access token
         await discordSdk.commands.authenticate({
-          access_token: user.accessToken
+          access_token: discordUser.accessToken
         })
 
       } catch (err) {
@@ -84,9 +77,9 @@ function App() {
     }
 
     initializeDiscord()
-  }, [])
+  }, [setUser, setLoading, setError])
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-dark">
         <div className="text-white text-center">
@@ -111,7 +104,7 @@ function App() {
     )
   }
 
-  if (!discordUser) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-dark">
         <div className="text-center">
@@ -127,14 +120,14 @@ function App() {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold text-primary">Scribble</h1>
           <div className="flex items-center gap-4">
-            {discordUser.avatar && (
+            {user.avatar && (
               <img
-                src={discordUser.avatar}
-                alt={discordUser.username}
+                src={user.avatar}
+                alt={user.username}
                 className="w-8 h-8 rounded-full"
               />
             )}
-            <span className="text-gray-300">{discordUser.username}</span>
+            <span className="text-gray-300">{user.username}</span>
           </div>
         </div>
       </header>
