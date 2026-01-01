@@ -1,9 +1,65 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
 import { useDailyProblem } from '../hooks/useDailyProblem';
 import { TWO_SUM_STARTER_CODE, LANGUAGE_LABELS, type Language } from '../constants/starterCode';
 import ResultPanel, { type SubmissionResult } from '../components/ResultPanel';
+
+/**
+ * Execution status phases
+ */
+type ExecutionPhase = 'idle' | 'submitting' | 'compiling' | 'running' | 'evaluating';
+
+const PHASE_MESSAGES: Record<ExecutionPhase, { message: string; icon: string }> = {
+  idle: { message: '', icon: '' },
+  submitting: { message: 'Submitting your code...', icon: '📤' },
+  compiling: { message: 'Compiling...', icon: '⚙️' },
+  running: { message: 'Running test cases...', icon: '▶️' },
+  evaluating: { message: 'Evaluating results...', icon: '📊' },
+};
+
+/**
+ * Execution status panel shown during submission
+ */
+function ExecutionStatusPanel({ phase }: { phase: ExecutionPhase }) {
+  const { message, icon } = PHASE_MESSAGES[phase];
+
+  if (phase === 'idle') return null;
+
+  return (
+    <div className="bg-gray-800 border-t border-gray-700 p-4">
+      <div className="bg-blue-900/50 border border-blue-700 rounded-lg p-4">
+        <div className="flex items-center gap-3">
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-transparent"></div>
+          <span className="text-xl" role="img" aria-hidden="true">{icon}</span>
+          <span className="text-blue-300 font-medium">{message}</span>
+        </div>
+        <div className="mt-3 flex gap-2">
+          {(['submitting', 'compiling', 'running', 'evaluating'] as ExecutionPhase[]).map((p, i) => {
+            const phases: ExecutionPhase[] = ['submitting', 'compiling', 'running', 'evaluating'];
+            const currentIndex = phases.indexOf(phase);
+            const stepIndex = i;
+            const isComplete = stepIndex < currentIndex;
+            const isCurrent = stepIndex === currentIndex;
+
+            return (
+              <div
+                key={p}
+                className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                  isComplete
+                    ? 'bg-blue-500'
+                    : isCurrent
+                      ? 'bg-blue-400 animate-pulse'
+                      : 'bg-gray-600'
+                }`}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Get difficulty badge color based on difficulty level
@@ -27,9 +83,12 @@ export default function ProblemPage() {
 
   const [language, setLanguage] = useState<Language>('python');
   const [code, setCode] = useState(TWO_SUM_STARTER_CODE[language]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [executionPhase, setExecutionPhase] = useState<ExecutionPhase>('idle');
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Derived state for backward compatibility
+  const isSubmitting = executionPhase !== 'idle';
 
   // Reset code when problem changes
   useEffect(() => {
@@ -48,11 +107,25 @@ export default function ProblemPage() {
     setError(null);
   };
 
+  // Simulate execution phase progression
+  const progressPhases = useCallback(async () => {
+    // Simulate phase transitions with realistic delays
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setExecutionPhase('compiling');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setExecutionPhase('running');
+    await new Promise(resolve => setTimeout(resolve, 800));
+    setExecutionPhase('evaluating');
+  }, []);
+
   // Handle code submission
   const handleSubmit = async () => {
-    setIsSubmitting(true);
+    setExecutionPhase('submitting');
     setError(null);
     setResult(null);
+
+    // Start phase progression in parallel with API call
+    const phasePromise = progressPhases();
 
     try {
       const response = await axios.post('/api/submissions', {
@@ -60,6 +133,9 @@ export default function ProblemPage() {
         language,
         problemId: problem.id
       });
+
+      // Wait for phase animation to complete
+      await phasePromise;
 
       setResult(response.data);
     } catch (err) {
@@ -70,7 +146,7 @@ export default function ProblemPage() {
           : 'An unexpected error occurred'
       );
     } finally {
-      setIsSubmitting(false);
+      setExecutionPhase('idle');
     }
   };
 
@@ -164,7 +240,8 @@ export default function ProblemPage() {
             <select
               value={language}
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
-              className="bg-gray-700 text-white rounded px-3 py-1.5 text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+              disabled={isSubmitting}
+              className="bg-gray-700 text-white rounded px-3 py-1.5 text-sm border border-gray-600 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {(Object.keys(LANGUAGE_LABELS) as Language[]).map((lang) => (
                 <option key={lang} value={lang}>
@@ -213,6 +290,9 @@ export default function ProblemPage() {
             </div>
           </div>
 
+          {/* Execution Status */}
+          <ExecutionStatusPanel phase={executionPhase} />
+
           {/* Results Display */}
           {result && <ResultPanel result={result} />}
 
@@ -231,9 +311,16 @@ export default function ProblemPage() {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Solution'}
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <span>Running...</span>
+                </>
+              ) : (
+                'Submit Solution'
+              )}
             </button>
           </div>
         </div>
