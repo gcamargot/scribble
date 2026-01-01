@@ -55,9 +55,11 @@ func main() {
 
 	// Initialize services
 	problemService := services.NewProblemService(database.GetConnection())
+	leaderboardService := services.NewLeaderboardService(database.GetConnection())
 
 	// Initialize handlers
 	problemHandler := handlers.NewProblemHandler(problemService)
+	leaderboardHandler := handlers.NewLeaderboardHandler(leaderboardService)
 
 	// Register API routes under /internal prefix
 	// These endpoints are called by the Node.js proxy (internal service-to-service)
@@ -78,8 +80,25 @@ func main() {
 			problems.GET("/:id/test-cases", problemHandler.GetTestCasesByProblemID)
 		}
 
+		// Leaderboard endpoints
+		leaderboards := internal.Group("/leaderboards")
+		{
+			// GET /internal/leaderboards/metrics - List available metric types
+			leaderboards.GET("/metrics", leaderboardHandler.GetAvailableMetrics)
+
+			// POST /internal/leaderboards/compute - Compute rankings (admin only)
+			// Query param: metric to compute specific metric only
+			leaderboards.POST("/compute", leaderboardHandler.ComputeLeaderboards)
+
+			// GET /internal/leaderboards/user/:user_id - Get user's ranks
+			leaderboards.GET("/user/:user_id", leaderboardHandler.GetUserRanks)
+
+			// GET /internal/leaderboards/:metric - Get paginated leaderboard
+			// Query params: page, page_size
+			leaderboards.GET("/:metric", leaderboardHandler.GetLeaderboard)
+		}
+
 		// TODO: Add submission endpoints
-		// TODO: Add leaderboard endpoints
 		// TODO: Add streak endpoints
 	}
 
