@@ -82,59 +82,91 @@ func (s *AntiCheatService) isSuspiciousTime(executionTimeMs int, difficulty stri
 }
 
 // checkRateLimit checks if user has exceeded submission rate limit
+// Uses atomic updates to prevent race conditions
 func (s *AntiCheatService) checkRateLimit(userID uint) (bool, *time.Duration, error) {
-	var entry models.RateLimitEntry
 	now := time.Now()
+	windowStart := now.Add(-s.rateLimitConfig.WindowDuration)
 
-	// Get or create rate limit entry
-	result := s.db.Where("user_id = ?", userID).First(&entry)
+	// Try atomic increment for existing entry within window
+	// This prevents race conditions by using UPDATE ... WHERE in a single query
+	result := s.db.Exec(`
+		UPDATE rate_limit_entries
+		SET submissions = submissions + 1, last_submit = ?
+		WHERE user_id = ?
+		  AND window_start > ?
+		  AND submissions < ?
+	`, now, userID, windowStart, s.rateLimitConfig.MaxSubmissions)
 
-	if result.Error == gorm.ErrRecordNotFound {
-		// First submission, create entry
-		entry = models.RateLimitEntry{
-			UserID:      userID,
-			Submissions: 1,
-			WindowStart: now,
-			LastSubmit:  now,
+	if result.Error != nil {
+		return false, nil, fmt.Errorf("failed to update rate limit: %w", result.Error)
+	}
+
+	// If we updated a row, the submission is allowed
+	if result.RowsAffected > 0 {
+		return false, nil, nil
+	}
+
+	// No row updated - either entry doesn't exist, window expired, or limit reached
+	// Need to check which case and handle accordingly
+	var entry models.RateLimitEntry
+	err := s.db.Where("user_id = ?", userID).First(&entry).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// First submission - create entry atomically using INSERT ... ON CONFLICT
+		// Use ON CONFLICT to handle race between concurrent first submissions
+		createResult := s.db.Exec(`
+			INSERT INTO rate_limit_entries (user_id, submissions, window_start, last_submit)
+			VALUES (?, 1, ?, ?)
+			ON CONFLICT (user_id) DO UPDATE SET
+				submissions = CASE
+					WHEN rate_limit_entries.window_start <= ? THEN 1
+					WHEN rate_limit_entries.submissions < ? THEN rate_limit_entries.submissions + 1
+					ELSE rate_limit_entries.submissions
+				END,
+				window_start = CASE
+					WHEN rate_limit_entries.window_start <= ? THEN ?
+					ELSE rate_limit_entries.window_start
+				END,
+				last_submit = ?
+		`, userID, now, now, windowStart, s.rateLimitConfig.MaxSubmissions, windowStart, now, now)
+
+		if createResult.Error != nil {
+			return false, nil, fmt.Errorf("failed to create rate limit entry: %w", createResult.Error)
 		}
-		s.db.Create(&entry)
 		return false, nil, nil
-	} else if result.Error != nil {
-		return false, nil, result.Error
+	} else if err != nil {
+		return false, nil, fmt.Errorf("failed to query rate limit: %w", err)
 	}
 
-	// Check if window has expired
+	// Entry exists - check if window expired
 	windowEnd := entry.WindowStart.Add(s.rateLimitConfig.WindowDuration)
-
 	if now.After(windowEnd) {
-		// Reset window
-		entry.WindowStart = now
-		entry.Submissions = 1
-		entry.LastSubmit = now
-		s.db.Save(&entry)
+		// Window expired - reset atomically
+		s.db.Exec(`
+			UPDATE rate_limit_entries
+			SET submissions = 1, window_start = ?, last_submit = ?
+			WHERE user_id = ? AND window_start = ?
+		`, now, now, userID, entry.WindowStart)
 		return false, nil, nil
 	}
 
-	// Check if in cooldown
+	// Limit reached - check cooldown
 	if entry.Submissions >= s.rateLimitConfig.MaxSubmissions {
 		cooldownEnd := entry.LastSubmit.Add(s.rateLimitConfig.CooldownDuration)
 		if now.Before(cooldownEnd) {
 			remaining := cooldownEnd.Sub(now)
 			return true, &remaining, nil
 		}
-		// Cooldown expired, reset
-		entry.WindowStart = now
-		entry.Submissions = 1
-		entry.LastSubmit = now
-		s.db.Save(&entry)
+		// Cooldown expired - reset atomically
+		s.db.Exec(`
+			UPDATE rate_limit_entries
+			SET submissions = 1, window_start = ?, last_submit = ?
+			WHERE user_id = ? AND submissions >= ?
+		`, now, now, userID, s.rateLimitConfig.MaxSubmissions)
 		return false, nil, nil
 	}
 
-	// Increment submission count
-	entry.Submissions++
-	entry.LastSubmit = now
-	s.db.Save(&entry)
-
+	// Edge case: concurrent request incremented just before us
 	return false, nil, nil
 }
 
