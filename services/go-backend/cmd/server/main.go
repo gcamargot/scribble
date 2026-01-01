@@ -55,9 +55,11 @@ func main() {
 
 	// Initialize services
 	problemService := services.NewProblemService(database.GetConnection())
+	userService := services.NewUserService(database.GetConnection())
 
 	// Initialize handlers
 	problemHandler := handlers.NewProblemHandler(problemService)
+	userHandler := handlers.NewUserHandler(userService)
 
 	// Register API routes under /internal prefix
 	// These endpoints are called by the Node.js proxy (internal service-to-service)
@@ -76,6 +78,23 @@ func main() {
 			// GET /internal/problems/:id/test-cases - Get test cases for a problem
 			// Query param: all=true to include hidden tests (for code executor)
 			problems.GET("/:id/test-cases", problemHandler.GetTestCasesByProblemID)
+		}
+
+		// User metrics endpoints
+		users := internal.Group("/users")
+		{
+			// GET /internal/users/top - Get top users
+			// Query params: by (problems|streak), limit
+			users.GET("/top", userHandler.GetTopUsers)
+
+			// GET /internal/users/username/:username/metrics - Get metrics by username
+			users.GET("/username/:username/metrics", userHandler.GetUserMetricsByUsername)
+
+			// GET /internal/users/:user_id/metrics - Get user aggregate metrics
+			users.GET("/:user_id/metrics", userHandler.GetUserMetrics)
+
+			// GET /internal/users/:user_id/languages - Get language statistics
+			users.GET("/:user_id/languages", userHandler.GetUserLanguageStats)
 		}
 
 		// TODO: Add submission endpoints
