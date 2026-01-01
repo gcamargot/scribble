@@ -79,6 +79,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev_secret}
       INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET:-dev_secret}
       LOG_LEVEL: debug
+      USE_MOCK_BACKEND: "true"
     ports:
       - "3000:3000"
     depends_on:
