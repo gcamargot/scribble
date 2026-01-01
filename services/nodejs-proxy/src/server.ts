@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth.js';
 import submissionsRouter from './routes/submissions.js';
 import problemsRouter from './routes/problems.js';
+import { initializeProxy } from './middleware/proxy.js';
 
 // Load environment variables
 dotenv.config();
@@ -57,10 +58,18 @@ app.use((_req: Request, res: Response) => {
   });
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`[${new Date().toISOString()}] Server running on http://localhost:${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+// Initialize proxy and start server
+async function start() {
+  await initializeProxy();
+  app.listen(port, () => {
+    console.log(`[${new Date().toISOString()}] Server running on http://localhost:${port}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+}
+
+start().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
 
 export default app;

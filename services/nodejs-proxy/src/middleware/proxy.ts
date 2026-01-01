@@ -14,21 +14,40 @@ const TLS_CERT_PATH = process.env.TLS_CERT_PATH || '/etc/scribble/tls/tls.crt';
 const TLS_KEY_PATH = process.env.TLS_KEY_PATH || '/etc/scribble/tls/tls.key';
 const MTLS_ENABLED = process.env.MTLS_ENABLED === 'true';
 
-// Create HTTPS agent with client certificates for mTLS
+// Configurable timeout (default 30 seconds for code execution)
+const PROXY_TIMEOUT_MS = parseInt(process.env.PROXY_TIMEOUT_MS || '30000', 10);
+
+// HTTPS agent initialized asynchronously
 let httpsAgent: https.Agent | undefined;
-if (MTLS_ENABLED) {
-  try {
-    httpsAgent = new https.Agent({
-      ca: fs.readFileSync(TLS_CA_PATH),
-      cert: fs.readFileSync(TLS_CERT_PATH),
-      key: fs.readFileSync(TLS_KEY_PATH),
-      rejectUnauthorized: true // Verify server certificate
-    });
-    console.log('[Proxy] mTLS enabled with client certificates');
-  } catch (err) {
-    console.error('[Proxy] Failed to load mTLS certificates:', err);
-    console.log('[Proxy] Falling back to non-mTLS mode');
+let proxyInitialized = false;
+
+/**
+ * Initialize proxy with mTLS certificates (async)
+ * Call this before starting the server to avoid blocking the event loop
+ */
+export async function initializeProxy(): Promise<void> {
+  if (proxyInitialized) return;
+
+  if (MTLS_ENABLED) {
+    try {
+      const [ca, cert, key] = await Promise.all([
+        fs.promises.readFile(TLS_CA_PATH),
+        fs.promises.readFile(TLS_CERT_PATH),
+        fs.promises.readFile(TLS_KEY_PATH),
+      ]);
+      httpsAgent = new https.Agent({
+        ca,
+        cert,
+        key,
+        rejectUnauthorized: true // Verify server certificate
+      });
+      console.log('[Proxy] mTLS enabled with client certificates');
+    } catch (err) {
+      console.error('[Proxy] Failed to load mTLS certificates:', err);
+      console.log('[Proxy] Falling back to non-mTLS mode');
+    }
   }
+  proxyInitialized = true;
 }
 
 /**
@@ -50,8 +69,8 @@ const baseProxyOptions: Options = {
   target: GO_BACKEND_URL,
   changeOrigin: true,
   secure: MTLS_ENABLED, // Verify server cert when mTLS enabled
-  timeout: 30000, // 30 second timeout for code execution
-  proxyTimeout: 30000,
+  timeout: PROXY_TIMEOUT_MS,
+  proxyTimeout: PROXY_TIMEOUT_MS,
   agent: httpsAgent, // Use mTLS client cert if configured
   onProxyReq: (proxyReq: ClientRequest, req: IncomingMessage) => {
     // Add internal auth header for service-to-service auth
