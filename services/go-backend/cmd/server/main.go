@@ -58,10 +58,12 @@ func main() {
 	// Initialize services
 	problemService := services.NewProblemService(database.GetConnection())
 	leaderboardService := services.NewLeaderboardService(database.GetConnection())
+	antiCheatService := services.NewAntiCheatService(database.GetConnection())
 
 	// Initialize handlers
 	problemHandler := handlers.NewProblemHandler(problemService)
 	leaderboardHandler := handlers.NewLeaderboardHandler(leaderboardService)
+	antiCheatHandler := handlers.NewAntiCheatHandler(antiCheatService)
 
 	// Register API routes under /internal prefix
 	// These endpoints are called by the Node.js proxy (internal service-to-service)
@@ -98,6 +100,35 @@ func main() {
 			// GET /internal/leaderboards/:metric - Get paginated leaderboard
 			// Query params: page, page_size
 			leaderboards.GET("/:metric", leaderboardHandler.GetLeaderboard)
+		}
+
+		// Anti-cheat endpoints
+		anticheat := internal.Group("/anticheat")
+		{
+			// POST /internal/anticheat/check - Check if submission should be allowed
+			anticheat.POST("/check", antiCheatHandler.CheckSubmission)
+
+			// POST /internal/anticheat/flag - Flag a submission
+			anticheat.POST("/flag", antiCheatHandler.FlagSubmission)
+		}
+
+		// Admin endpoints (require X-Admin-Secret header)
+		admin := internal.Group("/admin")
+		{
+			// GET /internal/admin/flags/pending - Get pending flags
+			admin.GET("/flags/pending", antiCheatHandler.GetPendingFlags)
+
+			// GET /internal/admin/flags/stats - Get flag statistics
+			admin.GET("/flags/stats", antiCheatHandler.GetFlagStats)
+
+			// GET /internal/admin/flags/user/:user_id - Get flags for user
+			admin.GET("/flags/user/:user_id", antiCheatHandler.GetUserFlags)
+
+			// POST /internal/admin/flags/:flag_id/review - Review a flag
+			admin.POST("/flags/:flag_id/review", antiCheatHandler.ReviewFlag)
+
+			// POST /internal/admin/cleanup/rate-limits - Cleanup stale entries
+			admin.POST("/cleanup/rate-limits", antiCheatHandler.CleanupRateLimits)
 		}
 
 		// TODO: Add submission endpoints
