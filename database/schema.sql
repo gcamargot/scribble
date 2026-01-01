@@ -85,6 +85,7 @@ CREATE INDEX idx_submissions_status ON submissions(status);
 CREATE INDEX idx_submissions_submitted_at ON submissions(submitted_at DESC);
 CREATE INDEX idx_submissions_user_problem ON submissions(user_id, problem_id);
 CREATE INDEX idx_submissions_language ON submissions(language);
+CREATE INDEX idx_submissions_user_status ON submissions(user_id, status);
 
 -- User streaks (consecutive days solving daily challenge)
 CREATE TABLE IF NOT EXISTS streaks (

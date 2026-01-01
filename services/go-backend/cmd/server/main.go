@@ -59,11 +59,13 @@ func main() {
 	problemService := services.NewProblemService(database.GetConnection())
 	leaderboardService := services.NewLeaderboardService(database.GetConnection())
 	antiCheatService := services.NewAntiCheatService(database.GetConnection())
+	submissionService := services.NewSubmissionService(database.GetConnection())
 
 	// Initialize handlers
 	problemHandler := handlers.NewProblemHandler(problemService)
 	leaderboardHandler := handlers.NewLeaderboardHandler(leaderboardService)
 	antiCheatHandler := handlers.NewAntiCheatHandler(antiCheatService)
+	submissionHandler := handlers.NewSubmissionHandler(submissionService)
 
 	// Register API routes under /internal prefix
 	// These endpoints are called by the Node.js proxy (internal service-to-service)
@@ -102,6 +104,21 @@ func main() {
 			leaderboards.GET("/:metric", leaderboardHandler.GetLeaderboard)
 		}
 
+		// Submission endpoints
+		submissions := internal.Group("/submissions")
+		{
+			// GET /internal/submissions/:id - Get submission by ID
+			// Query param: include_code=true to include source code
+			submissions.GET("/:id", submissionHandler.GetSubmissionByID)
+
+			// GET /internal/submissions/user/:user_id - Get user submission history
+			// Query params: page, page_size, problem_id, status, language
+			submissions.GET("/user/:user_id", submissionHandler.GetUserSubmissionHistory)
+
+			// GET /internal/submissions/user/:user_id/stats - Get user submission stats
+			submissions.GET("/user/:user_id/stats", submissionHandler.GetUserSubmissionStats)
+		}
+
 		// Anti-cheat endpoints
 		anticheat := internal.Group("/anticheat")
 		{
@@ -131,7 +148,6 @@ func main() {
 			admin.POST("/cleanup/rate-limits", antiCheatHandler.CleanupRateLimits)
 		}
 
-		// TODO: Add submission endpoints
 		// TODO: Add streak endpoints
 	}
 
