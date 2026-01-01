@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nahtao97/scribble/internal/models"
 	"github.com/nahtao97/scribble/internal/services"
 )
 
@@ -90,13 +91,33 @@ func (h *SubmissionHandler) GetUserSubmissionHistory(c *gin.Context) {
 		}
 	}
 
+	// Validate status filter if provided
+	status := c.Query("status")
+	if status != "" && !models.IsValidStatus(status) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":          "invalid status",
+			"valid_statuses": models.AllStatuses(),
+		})
+		return
+	}
+
+	// Validate language filter if provided
+	language := c.Query("language")
+	if language != "" && !models.IsValidLanguage(language) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":             "invalid language",
+			"valid_languages":   models.SupportedLanguages,
+		})
+		return
+	}
+
 	// Build params
 	params := services.SubmissionHistoryParams{
 		UserID:   uint(userID),
 		Page:     page,
 		PageSize: pageSize,
-		Status:   c.Query("status"),
-		Language: c.Query("language"),
+		Status:   status,
+		Language: language,
 	}
 
 	// Parse optional problem ID filter

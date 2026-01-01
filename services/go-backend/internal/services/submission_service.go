@@ -55,13 +55,9 @@ func (s *SubmissionService) GetSubmissionWithCode(id uint) (*models.SubmissionWi
 		return nil, fmt.Errorf("failed to retrieve submission: %w", result.Error)
 	}
 
-	// We need to get the code separately since it's not in the default response
-	var codeResult struct {
-		Code string
-	}
-	s.db.Model(&models.Submission{}).Select("code").Where("id = ?", id).Scan(&codeResult)
-
-	return submission.ToWithCode(codeResult.Code), nil
+	// Code is loaded by GORM but hidden from JSON with json:"-" tag
+	// We use ToWithCode to expose it explicitly
+	return submission.ToWithCode(submission.Code), nil
 }
 
 // SubmissionHistoryParams contains pagination and filter parameters

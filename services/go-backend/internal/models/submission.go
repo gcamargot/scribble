@@ -16,6 +16,41 @@ const (
 	StatusCompilationError SubmissionStatus = "compilation_error"
 )
 
+// AllStatuses returns all valid submission statuses
+func AllStatuses() []SubmissionStatus {
+	return []SubmissionStatus{
+		StatusAccepted,
+		StatusWrongAnswer,
+		StatusRuntimeError,
+		StatusTimeout,
+		StatusMemoryLimit,
+		StatusCompilationError,
+	}
+}
+
+// IsValidStatus checks if a status string is valid
+func IsValidStatus(status string) bool {
+	for _, s := range AllStatuses() {
+		if string(s) == status {
+			return true
+		}
+	}
+	return false
+}
+
+// SupportedLanguages lists the supported programming languages
+var SupportedLanguages = []string{"python", "javascript", "go", "java", "cpp", "rust"}
+
+// IsValidLanguage checks if a language is supported
+func IsValidLanguage(lang string) bool {
+	for _, l := range SupportedLanguages {
+		if l == lang {
+			return true
+		}
+	}
+	return false
+}
+
 // Submission represents a user's code submission
 // Maps to the submissions table in schema.sql
 type Submission struct {
