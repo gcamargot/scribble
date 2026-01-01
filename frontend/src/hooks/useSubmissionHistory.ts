@@ -166,6 +166,50 @@ export function useSubmissionStats() {
 }
 
 /**
+ * Daily activity entry for calendar heatmap
+ */
+export interface DailyActivity {
+  date: string; // YYYY-MM-DD
+  count: number; // Number of submissions
+  solved: boolean; // Had at least one accepted submission
+  attempted: boolean; // Had submissions but none accepted
+}
+
+/**
+ * Fetch user activity for the past year
+ */
+async function fetchUserActivity(): Promise<DailyActivity[]> {
+  const response = await axios.get<{ activity: DailyActivity[] }>('/api/submissions/activity');
+  return response.data.activity;
+}
+
+/**
+ * Hook to fetch user daily activity for calendar heatmap
+ */
+export function useUserActivity() {
+  const {
+    data: activity,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['userActivity'],
+    queryFn: fetchUserActivity,
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours
+  });
+
+  return {
+    activity: activity ?? [],
+    isLoading,
+    isError,
+    error: error as Error | null,
+    refetch,
+  };
+}
+
+/**
  * Hook to fetch a single submission by ID
  */
 export function useSubmission(submissionId: number | undefined) {

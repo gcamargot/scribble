@@ -126,3 +126,47 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* Streak Calendar Heatmap Styles */
+.streak-calendar-wrapper {
+  overflow-x: auto;
+}
+
+.streak-calendar-wrapper .react-calendar-heatmap {
+  width: 100%;
+  height: auto;
+}
+
+.streak-calendar-wrapper .react-calendar-heatmap text {
+  font-size: 10px;
+  fill: #6b7280;
+}
+
+.streak-calendar-wrapper .react-calendar-heatmap rect {
+  rx: 2;
+  ry: 2;
+}
+
+.streak-calendar-wrapper .color-empty {
+  fill: #374151;
+}
+
+.streak-calendar-wrapper .color-attempted {
+  fill: #ca8a04;
+}
+
+.streak-calendar-wrapper .color-solved-1 {
+  fill: #166534;
+}
+
+.streak-calendar-wrapper .color-solved-2 {
+  fill: #16a34a;
+}
+
+.streak-calendar-wrapper .color-solved-3 {
+  fill: #22c55e;
+}
+
+.streak-calendar-wrapper .color-solved-4 {
+  fill: #4ade80;
+}

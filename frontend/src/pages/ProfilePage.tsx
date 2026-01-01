@@ -10,6 +10,7 @@ import {
 import { useSubmissionStats, useSubmissionHistory } from '../hooks/useSubmissionHistory';
 import { useAuthStore } from '../stores/authStore';
 import StreakBadge from '../components/StreakBadge';
+import StreakCalendar from '../components/StreakCalendar';
 import SubmissionCard from '../components/SubmissionCard';
 import { LANGUAGE_LABELS, type Language } from '../constants/starterCode';
 
@@ -234,6 +235,15 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Activity Calendar */}
+        <div className="mb-8">
+          <StreakCalendar
+            currentStreak={stats?.currentStreak ?? 0}
+            longestStreak={stats?.longestStreak ?? 0}
+            totalDaysActive={stats?.solvedProblems ?? 0}
+          />
         </div>
 
         {/* Stats Grid */}
