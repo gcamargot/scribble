@@ -65,6 +65,113 @@ const handleSubmission: RequestHandler = (req: Request, res: Response, next: Nex
 // Apply validation then proxy
 router.post('/', handleSubmission, submissionsProxy);
 
+// Go backend URL from environment
+const GO_BACKEND_URL = process.env.GO_BACKEND_URL || 'http://localhost:8080';
+
+// Extend Request type with user context (set by auth middleware)
+interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+    username: string;
+  };
+}
+
+/**
+ * GET /api/submissions/history
+ *
+ * Get current user's submission history (paginated)
+ * Query params: page, page_size, problem_id, status, language
+ * Requires authentication
+ */
+router.get('/history', async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+
+  // Check if user is authenticated
+  if (!authReq.user?.userId) {
+    return res.status(401).json({
+      error: 'Authentication required'
+    });
+  }
+
+  const userId = authReq.user.userId;
+
+  // Build query string from request params
+  const queryParams = new URLSearchParams();
+  if (req.query.page) queryParams.set('page', req.query.page as string);
+  if (req.query.page_size) queryParams.set('page_size', req.query.page_size as string);
+  if (req.query.problem_id) queryParams.set('problem_id', req.query.problem_id as string);
+  if (req.query.status) queryParams.set('status', req.query.status as string);
+  if (req.query.language) queryParams.set('language', req.query.language as string);
+
+  const queryString = queryParams.toString();
+  const url = `${GO_BACKEND_URL}/internal/submissions/user/${userId}${queryString ? '?' + queryString : ''}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'X-Internal-Auth': process.env.INTERNAL_AUTH_SECRET || '',
+        'X-User-Id': userId,
+        'X-Username': authReq.user.username || ''
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      return res.status(response.status).json(error);
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error('[Submissions] Error fetching history:', error);
+    return res.status(502).json({
+      error: 'Failed to fetch submission history from backend'
+    });
+  }
+});
+
+/**
+ * GET /api/submissions/stats
+ *
+ * Get current user's submission statistics
+ * Requires authentication
+ */
+router.get('/stats', async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+
+  if (!authReq.user?.userId) {
+    return res.status(401).json({
+      error: 'Authentication required'
+    });
+  }
+
+  const userId = authReq.user.userId;
+  const url = `${GO_BACKEND_URL}/internal/submissions/user/${userId}/stats`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'X-Internal-Auth': process.env.INTERNAL_AUTH_SECRET || '',
+        'X-User-Id': userId,
+        'X-Username': authReq.user.username || ''
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      return res.status(response.status).json(error);
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error('[Submissions] Error fetching stats:', error);
+    return res.status(502).json({
+      error: 'Failed to fetch submission stats from backend'
+    });
+  }
+});
+
 /**
  * GET /api/submissions/:id
  *
@@ -72,13 +179,5 @@ router.post('/', handleSubmission, submissionsProxy);
  * Proxied to Go backend
  */
 router.get('/:id', submissionsProxy);
-
-/**
- * GET /api/submissions/history
- *
- * Get user submission history
- * Proxied to Go backend
- */
-router.get('/history', submissionsProxy);
 
 export default router;
