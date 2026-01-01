@@ -75,10 +75,16 @@ spec:
               echo "Response: $body"
               echo "HTTP Status: $http_code"
 
-              # Check for success (2xx status)
+              # Check for success (2xx status and success flag in response)
               if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-                echo "Leaderboard computation completed successfully"
-                exit 0
+                # Verify response contains success:true
+                if echo "$body" | grep -q '"success":true'; then
+                  echo "Leaderboard computation completed successfully"
+                  exit 0
+                else
+                  echo "Response missing success flag, body: $body"
+                  exit 1
+                fi
               else
                 echo "Leaderboard computation failed with status $http_code"
                 exit 1
@@ -110,18 +116,5 @@ spec:
               capabilities:
                 drop:
                   - ALL
----
-# Secret placeholder for admin credentials
-# In production, create this secret separately or use external secrets manager
-apiVersion: v1
-kind: Secret
-metadata:
-  name: scribble-secrets
-  namespace: default
-  labels:
-    app: scribble
-type: Opaque
-stringData:
-  # Replace with actual admin secret before deployment
-  # Generate with: openssl rand -base64 32
-  admin-secret: "REPLACE_WITH_ACTUAL_SECRET"
+# Note: scribble-secrets Secret must be created separately
+# See k8s/secrets/scribble-secrets.yaml.example for template
