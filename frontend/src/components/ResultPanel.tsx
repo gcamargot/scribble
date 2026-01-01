@@ -9,6 +9,32 @@ interface TestCaseResult {
   executionTime: number; // in ms
 }
 
+/**
+ * Error types that can occur during code execution
+ */
+export type ErrorType =
+  | 'compilation_error'
+  | 'time_limit_exceeded'
+  | 'memory_limit_exceeded'
+  | 'runtime_error'
+  | 'wrong_answer'
+  | 'internal_error'
+  | null;
+
+/**
+ * Extended error details for debugging
+ */
+export interface ErrorDetails {
+  type: ErrorType;
+  line?: number;
+  column?: number;
+  compilerOutput?: string;
+  stackTrace?: string;
+  exitCode?: number;
+  signal?: string;
+  hint?: string;
+}
+
 export interface SubmissionResult {
   success: boolean;
   status: string;
@@ -25,6 +51,7 @@ export interface SubmissionResult {
   };
   message: string;
   testCases?: TestCaseResult[];
+  errorDetails?: ErrorDetails;
 }
 
 interface ResultPanelProps {
@@ -92,6 +119,157 @@ function parseMemoryToMb(memStr: string): number {
     default:
       return value;
   }
+}
+
+/**
+ * Detect error type from verdict string
+ */
+function detectErrorType(verdict: string): ErrorType {
+  const v = verdict.toLowerCase();
+  if (v.includes('compilation') || v.includes('compile')) return 'compilation_error';
+  if (v.includes('time') && v.includes('limit')) return 'time_limit_exceeded';
+  if (v.includes('memory') && v.includes('limit')) return 'memory_limit_exceeded';
+  if (v.includes('runtime') || v.includes('error')) return 'runtime_error';
+  if (v.includes('wrong')) return 'wrong_answer';
+  if (v.includes('internal')) return 'internal_error';
+  if (v !== 'accepted') return 'wrong_answer';
+  return null;
+}
+
+/**
+ * Get user-friendly error message based on error type
+ */
+function getErrorMessage(errorType: ErrorType): { title: string; description: string; icon: string } {
+  switch (errorType) {
+    case 'compilation_error':
+      return {
+        title: 'Compilation Error',
+        description: 'Your code failed to compile. Check for syntax errors, missing imports, or type mismatches.',
+        icon: '🔧'
+      };
+    case 'time_limit_exceeded':
+      return {
+        title: 'Time Limit Exceeded',
+        description: 'Your solution took too long to execute. Consider optimizing your algorithm or reducing time complexity.',
+        icon: '⏱️'
+      };
+    case 'memory_limit_exceeded':
+      return {
+        title: 'Memory Limit Exceeded',
+        description: 'Your solution used too much memory. Consider using more memory-efficient data structures.',
+        icon: '💾'
+      };
+    case 'runtime_error':
+      return {
+        title: 'Runtime Error',
+        description: 'Your code crashed during execution. Check for division by zero, array out of bounds, or null pointer errors.',
+        icon: '💥'
+      };
+    case 'wrong_answer':
+      return {
+        title: 'Wrong Answer',
+        description: 'Your solution produced incorrect output for one or more test cases.',
+        icon: '❌'
+      };
+    case 'internal_error':
+      return {
+        title: 'Internal Error',
+        description: 'An unexpected error occurred on our end. Please try again or report this issue.',
+        icon: '⚠️'
+      };
+    default:
+      return {
+        title: 'Error',
+        description: 'An error occurred during execution.',
+        icon: '❓'
+      };
+  }
+}
+
+/**
+ * Error details expandable section
+ */
+function ErrorDetailsSection({ details }: { details: ErrorDetails }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hasDetails = details.compilerOutput || details.stackTrace || details.hint;
+
+  if (!hasDetails) return null;
+
+  return (
+    <div className="mt-4">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors border border-gray-600"
+      >
+        <span className="text-gray-300 font-medium text-sm">
+          Error Details
+        </span>
+        <span className="text-gray-400">
+          {isExpanded ? '▼ Hide' : '▶ Show'}
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 bg-gray-900 rounded-lg p-4 space-y-4 border border-gray-700">
+          {/* Location info */}
+          {(details.line || details.column) && (
+            <div>
+              <span className="text-gray-400 text-xs font-medium block mb-1">Location:</span>
+              <span className="text-yellow-400 font-mono text-sm">
+                Line {details.line}{details.column ? `, Column ${details.column}` : ''}
+              </span>
+            </div>
+          )}
+
+          {/* Compiler output */}
+          {details.compilerOutput && (
+            <div>
+              <span className="text-gray-400 text-xs font-medium block mb-1">Compiler Output:</span>
+              <pre className="text-red-400 font-mono text-xs bg-gray-800 p-3 rounded overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
+                {details.compilerOutput}
+              </pre>
+            </div>
+          )}
+
+          {/* Stack trace */}
+          {details.stackTrace && (
+            <div>
+              <span className="text-gray-400 text-xs font-medium block mb-1">Stack Trace:</span>
+              <pre className="text-orange-400 font-mono text-xs bg-gray-800 p-3 rounded overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
+                {details.stackTrace}
+              </pre>
+            </div>
+          )}
+
+          {/* Exit code / signal */}
+          {(details.exitCode !== undefined || details.signal) && (
+            <div className="flex gap-4">
+              {details.exitCode !== undefined && (
+                <div>
+                  <span className="text-gray-400 text-xs font-medium block mb-1">Exit Code:</span>
+                  <span className="text-red-400 font-mono text-sm">{details.exitCode}</span>
+                </div>
+              )}
+              {details.signal && (
+                <div>
+                  <span className="text-gray-400 text-xs font-medium block mb-1">Signal:</span>
+                  <span className="text-red-400 font-mono text-sm">{details.signal}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Hint */}
+          {details.hint && (
+            <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
+              <span className="text-blue-400 text-xs font-medium block mb-1">💡 Hint:</span>
+              <p className="text-blue-300 text-sm">{details.hint}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -206,6 +384,10 @@ export default function ResultPanel({ result }: ResultPanelProps) {
 
   const isAccepted = result.verdict === 'Accepted';
 
+  // Detect error type and get user-friendly message
+  const errorType = result.errorDetails?.type ?? detectErrorType(result.verdict);
+  const errorInfo = errorType ? getErrorMessage(errorType) : null;
+
   // Mock test cases if not provided (for backward compatibility)
   const testCases = result.testCases || [];
 
@@ -220,13 +402,20 @@ export default function ResultPanel({ result }: ResultPanelProps) {
         }`}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3
-            className={`font-bold text-xl ${
-              isAccepted ? 'text-green-300' : 'text-red-300'
-            }`}
-          >
-            {result.verdict}
-          </h3>
+          <div className="flex items-center gap-3">
+            {errorInfo && (
+              <span className="text-2xl" role="img" aria-label={errorInfo.title}>
+                {errorInfo.icon}
+              </span>
+            )}
+            <h3
+              className={`font-bold text-xl ${
+                isAccepted ? 'text-green-300' : 'text-red-300'
+              }`}
+            >
+              {result.verdict}
+            </h3>
+          </div>
 
           {/* Test Pass Rate Badge */}
           <div className="flex items-center gap-2">
@@ -288,6 +477,16 @@ export default function ResultPanel({ result }: ResultPanelProps) {
 
         {/* Message */}
         <p className="text-gray-300 text-sm mt-4">{result.message}</p>
+
+        {/* Error Description */}
+        {errorInfo && !isAccepted && (
+          <div className="mt-3 p-3 bg-gray-800 rounded-lg border border-gray-600">
+            <p className="text-gray-400 text-sm">{errorInfo.description}</p>
+          </div>
+        )}
+
+        {/* Error Details (expandable) */}
+        {result.errorDetails && <ErrorDetailsSection details={result.errorDetails} />}
       </div>
 
       {/* Expandable Test Cases */}
