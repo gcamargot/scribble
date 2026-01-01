@@ -77,6 +77,15 @@ export interface SubmissionStats {
   longestStreak: number;
   lastSolvedDate: string | null;
   languageBreakdown: Record<string, number>;
+  difficultyBreakdown: {
+    easy: number;
+    medium: number;
+    hard: number;
+  };
+  averageMetrics: {
+    executionTime: number;
+    memoryUsed: number;
+  };
 }
 
 /**
