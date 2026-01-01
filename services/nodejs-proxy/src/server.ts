@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth.js';
 import submissionsRouter from './routes/submissions.js';
+import leaderboardsRouter from './routes/leaderboards.js';
 
 // Load environment variables
 dotenv.config();
@@ -38,11 +39,10 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api/submissions', submissionsRouter);
+app.use('/api/leaderboards', leaderboardsRouter);
 
 // TODO: Add additional routes
 // - Problems routes (/api/problems/*)
-// - Leaderboards routes (/api/leaderboards/*)
-// - Proxy to Go backend
 
 // Error handling middleware
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
