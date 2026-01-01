@@ -1,10 +1,35 @@
 import { createProxyMiddleware, Options } from 'http-proxy-middleware';
 import { Request, Response } from 'express';
 import { ClientRequest, IncomingMessage, ServerResponse } from 'http';
+import * as https from 'https';
+import * as fs from 'fs';
 
 // Go backend configuration from environment
 const GO_BACKEND_URL = process.env.GO_BACKEND_URL || 'http://localhost:8080';
 const INTERNAL_AUTH_SECRET = process.env.INTERNAL_AUTH_SECRET || '';
+
+// mTLS configuration paths (mounted as K8s secrets)
+const TLS_CA_PATH = process.env.TLS_CA_PATH || '/etc/scribble/tls/ca.crt';
+const TLS_CERT_PATH = process.env.TLS_CERT_PATH || '/etc/scribble/tls/tls.crt';
+const TLS_KEY_PATH = process.env.TLS_KEY_PATH || '/etc/scribble/tls/tls.key';
+const MTLS_ENABLED = process.env.MTLS_ENABLED === 'true';
+
+// Create HTTPS agent with client certificates for mTLS
+let httpsAgent: https.Agent | undefined;
+if (MTLS_ENABLED) {
+  try {
+    httpsAgent = new https.Agent({
+      ca: fs.readFileSync(TLS_CA_PATH),
+      cert: fs.readFileSync(TLS_CERT_PATH),
+      key: fs.readFileSync(TLS_KEY_PATH),
+      rejectUnauthorized: true // Verify server certificate
+    });
+    console.log('[Proxy] mTLS enabled with client certificates');
+  } catch (err) {
+    console.error('[Proxy] Failed to load mTLS certificates:', err);
+    console.log('[Proxy] Falling back to non-mTLS mode');
+  }
+}
 
 /**
  * Proxy middleware for forwarding requests to Go backend
@@ -24,9 +49,10 @@ interface AuthenticatedRequest extends Request {
 const baseProxyOptions: Options = {
   target: GO_BACKEND_URL,
   changeOrigin: true,
-  secure: false, // Allow self-signed certs in development
+  secure: MTLS_ENABLED, // Verify server cert when mTLS enabled
   timeout: 30000, // 30 second timeout for code execution
   proxyTimeout: 30000,
+  agent: httpsAgent, // Use mTLS client cert if configured
   onProxyReq: (proxyReq: ClientRequest, req: IncomingMessage) => {
     // Add internal auth header for service-to-service auth
     proxyReq.setHeader('X-Internal-Auth', INTERNAL_AUTH_SECRET);
