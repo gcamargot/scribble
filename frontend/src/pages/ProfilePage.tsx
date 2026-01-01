@@ -11,6 +11,7 @@ import { useSubmissionStats, useSubmissionHistory } from '../hooks/useSubmission
 import { useAuthStore } from '../stores/authStore';
 import StreakBadge from '../components/StreakBadge';
 import StreakCalendar from '../components/StreakCalendar';
+import RankBadges from '../components/RankBadges';
 import SubmissionCard from '../components/SubmissionCard';
 import { LANGUAGE_LABELS, type Language } from '../constants/starterCode';
 
@@ -245,6 +246,13 @@ export default function ProfilePage() {
             totalDaysActive={stats?.solvedProblems ?? 0}
           />
         </div>
+
+        {/* User Rankings */}
+        {user?.id && (
+          <div className="mb-8">
+            <RankBadges userId={parseInt(user.id, 10)} />
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
