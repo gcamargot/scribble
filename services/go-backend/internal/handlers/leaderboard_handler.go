@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"os"
 	"strconv"
@@ -35,7 +36,8 @@ func (h *LeaderboardHandler) ComputeLeaderboards(c *gin.Context) {
 	}
 
 	providedSecret := c.GetHeader("X-Admin-Secret")
-	if providedSecret != adminSecret {
+	// Use constant-time comparison to prevent timing attacks
+	if subtle.ConstantTimeCompare([]byte(providedSecret), []byte(adminSecret)) != 1 {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "invalid admin credentials",
 		})
