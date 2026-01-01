@@ -55,15 +55,62 @@ export interface UserRanks {
 }
 
 /**
- * Fetch leaderboard for a specific metric
+ * Time period filter options
+ */
+export type TimePeriod = 'all_time' | 'this_month' | 'this_week';
+
+export const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
+  all_time: 'All Time',
+  this_month: 'This Month',
+  this_week: 'This Week',
+};
+
+/**
+ * Difficulty filter options
+ */
+export type Difficulty = '' | 'easy' | 'medium' | 'hard';
+
+export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  '': 'All Difficulties',
+  easy: 'Easy',
+  medium: 'Medium',
+  hard: 'Hard',
+};
+
+/**
+ * Leaderboard filter options
+ */
+export interface LeaderboardFilters {
+  timePeriod?: TimePeriod;
+  language?: string;
+  difficulty?: Difficulty;
+}
+
+/**
+ * Fetch leaderboard for a specific metric with optional filters
  */
 async function fetchLeaderboard(
   metric: MetricType,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  filters?: LeaderboardFilters
 ): Promise<LeaderboardPage> {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('page_size', String(pageSize));
+
+  if (filters?.timePeriod && filters.timePeriod !== 'all_time') {
+    params.set('time_period', filters.timePeriod);
+  }
+  if (filters?.language) {
+    params.set('language', filters.language);
+  }
+  if (filters?.difficulty) {
+    params.set('difficulty', filters.difficulty);
+  }
+
   const response = await axios.get<LeaderboardPage>(
-    `/api/leaderboards/${metric}?page=${page}&page_size=${pageSize}`
+    `/api/leaderboards/${metric}?${params.toString()}`
   );
   return response.data;
 }
@@ -81,8 +128,14 @@ async function fetchUserRanks(userId: number): Promise<UserRanks> {
  *
  * @example
  * const { leaderboard, isLoading } = useLeaderboard('fastest_avg');
+ * const { leaderboard, isLoading } = useLeaderboard('fastest_avg', 1, 20, { timePeriod: 'this_week' });
  */
-export function useLeaderboard(metric: MetricType, page: number = 1, pageSize: number = 20) {
+export function useLeaderboard(
+  metric: MetricType,
+  page: number = 1,
+  pageSize: number = 20,
+  filters?: LeaderboardFilters
+) {
   const {
     data: leaderboard,
     isLoading,
@@ -90,8 +143,8 @@ export function useLeaderboard(metric: MetricType, page: number = 1, pageSize: n
     error,
     refetch,
   } = useQuery({
-    queryKey: ['leaderboard', metric, page, pageSize],
-    queryFn: () => fetchLeaderboard(metric, page, pageSize),
+    queryKey: ['leaderboard', metric, page, pageSize, filters],
+    queryFn: () => fetchLeaderboard(metric, page, pageSize, filters),
     staleTime: 1000 * 60 * 5, // 5 minutes - leaderboards computed every 5 mins
     gcTime: 1000 * 60 * 30, // 30 minutes
   });

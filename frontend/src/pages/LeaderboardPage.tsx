@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   useLeaderboard,
   METRIC_CONFIG,
   formatMetricValue,
+  TIME_PERIOD_LABELS,
+  DIFFICULTY_LABELS,
   type MetricType,
   type LeaderboardEntry,
+  type TimePeriod,
+  type Difficulty,
+  type LeaderboardFilters,
 } from '../hooks/useLeaderboard';
 import { useAuthStore } from '../stores/authStore';
+import { LANGUAGE_LABELS, type Language } from '../constants/starterCode';
 
 /**
  * Metric tab button component
@@ -235,21 +241,46 @@ function Pagination({
 export default function LeaderboardPage() {
   const [activeMetric, setActiveMetric] = useState<MetricType>('fastest_avg');
   const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState<LeaderboardFilters>({
+    timePeriod: 'all_time',
+    language: '',
+    difficulty: '',
+  });
   const pageSize = 20;
 
   const { entries, total, totalPages, isLoading, isError, error } = useLeaderboard(
     activeMetric,
     page,
-    pageSize
+    pageSize,
+    filters
   );
 
   const user = useAuthStore((state) => state.user);
 
-  // Reset page when metric changes
-  const handleMetricChange = (metric: MetricType) => {
+  // Reset page when metric or filters change
+  const handleMetricChange = useCallback((metric: MetricType) => {
     setActiveMetric(metric);
     setPage(1);
-  };
+  }, []);
+
+  const handleFilterChange = useCallback(<K extends keyof LeaderboardFilters>(
+    key: K,
+    value: LeaderboardFilters[K]
+  ) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPage(1);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters({
+      timePeriod: 'all_time',
+      language: '',
+      difficulty: '',
+    });
+    setPage(1);
+  }, []);
+
+  const hasActiveFilters = filters.timePeriod !== 'all_time' || filters.language || filters.difficulty;
 
   const metrics: MetricType[] = [
     'fastest_avg',
@@ -257,6 +288,10 @@ export default function LeaderboardPage() {
     'problems_solved',
     'longest_streak',
   ];
+
+  const timePeriods: TimePeriod[] = ['all_time', 'this_month', 'this_week'];
+  const difficulties: Difficulty[] = ['', 'easy', 'medium', 'hard'];
+  const languages = ['', ...Object.keys(LANGUAGE_LABELS)] as ('' | Language)[];
 
   return (
     <div className="min-h-screen bg-dark">
@@ -277,6 +312,70 @@ export default function LeaderboardPage() {
               onClick={() => handleMetricChange(metric)}
             />
           ))}
+        </div>
+
+        {/* Filters */}
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Time Period */}
+            <div className="flex items-center gap-2">
+              <label className="text-gray-400 text-sm">Time:</label>
+              <select
+                value={filters.timePeriod || 'all_time'}
+                onChange={(e) => handleFilterChange('timePeriod', e.target.value as TimePeriod)}
+                className="bg-gray-700 text-white rounded px-3 py-1.5 text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+              >
+                {timePeriods.map((period) => (
+                  <option key={period} value={period}>
+                    {TIME_PERIOD_LABELS[period]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Language */}
+            <div className="flex items-center gap-2">
+              <label className="text-gray-400 text-sm">Language:</label>
+              <select
+                value={filters.language || ''}
+                onChange={(e) => handleFilterChange('language', e.target.value)}
+                className="bg-gray-700 text-white rounded px-3 py-1.5 text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">All Languages</option>
+                {languages.filter(l => l !== '').map((lang) => (
+                  <option key={lang} value={lang}>
+                    {LANGUAGE_LABELS[lang as Language]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Difficulty */}
+            <div className="flex items-center gap-2">
+              <label className="text-gray-400 text-sm">Difficulty:</label>
+              <select
+                value={filters.difficulty || ''}
+                onChange={(e) => handleFilterChange('difficulty', e.target.value as Difficulty)}
+                className="bg-gray-700 text-white rounded px-3 py-1.5 text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+              >
+                {difficulties.map((diff) => (
+                  <option key={diff} value={diff}>
+                    {DIFFICULTY_LABELS[diff]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-blue-400 hover:text-blue-300 text-sm transition-colors ml-auto"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Active Metric Header */}
