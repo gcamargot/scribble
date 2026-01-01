@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useSubmissionHistory, useSubmissionStats, type SubmissionHistoryFilters } from '../hooks/useSubmissionHistory';
 import SubmissionCard from '../components/SubmissionCard';
+import StreakBadge from '../components/StreakBadge';
 import { LANGUAGE_LABELS } from '../constants/starterCode';
 
 /**
@@ -100,11 +101,19 @@ export default function HistoryPage() {
             label="Problems Solved"
             value={isStatsLoading ? '-' : `${stats?.solvedProblems ?? 0}/${stats?.totalProblems ?? 0}`}
           />
-          <StatsCard
-            label="Current Streak"
-            value={isStatsLoading ? '-' : `${stats?.currentStreak ?? 0} days`}
-            subtext={`Best: ${stats?.longestStreak ?? 0} days`}
-          />
+          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 flex flex-col items-center justify-center">
+            <span className="text-gray-400 text-sm block mb-2">Current Streak</span>
+            {isStatsLoading ? (
+              <span className="text-white text-2xl font-bold">-</span>
+            ) : (
+              <StreakBadge
+                currentStreak={stats?.currentStreak ?? 0}
+                longestStreak={stats?.longestStreak ?? 0}
+                lastSolvedDate={stats?.lastSolvedDate}
+                size="md"
+              />
+            )}
+          </div>
         </div>
 
         {/* Filters */}

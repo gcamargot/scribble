@@ -75,6 +75,7 @@ export interface SubmissionStats {
   solvedProblems: number;
   currentStreak: number;
   longestStreak: number;
+  lastSolvedDate: string | null;
   languageBreakdown: Record<string, number>;
 }
 
